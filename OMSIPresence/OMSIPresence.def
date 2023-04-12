@@ -1,0 +1,6 @@
+LIBRARY OMSIPresence.dll
+
+EXPORTS
+PluginStart
+AccessSystemVariable
+PluginFinalize
