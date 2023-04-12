@@ -7,6 +7,7 @@
 
 extern "C" __declspec(dllexport)void __stdcall PluginStart(void* aOwner);
 extern "C" __declspec(dllexport)void __stdcall AccessSystemVariable(unsigned short index, float* value, bool* write);
+extern "C" __declspec(dllexport)void __stdcall AccessVariable(unsigned short index, float* value, bool* write);
 extern "C" __declspec(dllexport)void __stdcall PluginFinalize();
 
 #ifdef PROJECT_DEBUG
@@ -108,7 +109,7 @@ void __stdcall PluginStart(void* aOwner)
 	DEBUG("Rich presence initialized.");
 }
 
-// Gets called each game frame per variable when said variable receives an update
+// Gets called each game frame per variable when said system variable receives an update
 void __stdcall AccessSystemVariable(unsigned short index, float* value, bool* write)
 {
 	// Version check failed. Remain dormant
@@ -136,12 +137,13 @@ void __stdcall AccessSystemVariable(unsigned short index, float* value, bool* wr
 	{
 		sysvars::pause = *value == 1.0f;
 	}
+}
 
+// Ditto, but for vehicle variables
+void __stdcall AccessVariable(unsigned short index, float* value, bool* write)
+{
 	// AI
-	else if (index == 2)
-	{
-		sysvars::ai = *value == 1.0f;
-	}
+	sysvars::ai = *value == 1.0f;
 }
 
 // Gets called when the game is exiting

@@ -3,4 +3,5 @@ LIBRARY OMSIPresence.dll
 EXPORTS
 PluginStart
 AccessSystemVariable
+AccessVariable
 PluginFinalize

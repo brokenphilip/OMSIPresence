@@ -2,7 +2,10 @@
 OMSIPresence.dll
 
 [systemvarlist]
-3
+2
 Timegap
 Pause
+
+[varlist]
+1
 AI
