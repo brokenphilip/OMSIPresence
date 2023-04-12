@@ -2,7 +2,7 @@
 # OMSIPresence
 An OMSI 2 Bus Simulator plugin which integrates Discord Rich Presence into the game.
 
-[media]
+![media](https://user-images.githubusercontent.com/13336890/231325258-06b0a0d8-bce3-46c3-b96c-bebd6ab3838e.png)
 
 # Usage
 ### Disclaimer
