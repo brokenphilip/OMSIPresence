@@ -5,7 +5,7 @@
 #define PROJECT_DEBUG
 
 #define PROJECT_NAME "OMSIPresence"
-#define PROJECT_VERSION "0.1"
+#define PROJECT_VERSION "0.2"
 
 #ifdef PROJECT_DEBUG
 void Debug(const char* message, ...);
@@ -19,12 +19,15 @@ void Error(const char* message, ...);
 uintptr_t TRVList_GetMyVehicle();
 char* TTimeTableMan_GetLineName(int index);
 
+void CreateDump(EXCEPTION_POINTERS* exception_pointers);
+
 template <typename T>
 inline T ReadMemory(uintptr_t address)
 {
 	return *reinterpret_cast<T*>(address);
 }
 
+inline HMODULE dll_instance;
 inline bool inGame = false;
 inline float timer = 0;
 

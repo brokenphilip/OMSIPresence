@@ -4,7 +4,6 @@
 #include <string>
 #include <fstream>
 #include <Windows.h>
-#include <minidumpapiset.h>
 
 #include "discord.h"
 #include "shared.h"
@@ -440,25 +439,9 @@ void discord::Update()
 	RemoveVectoredExceptionHandler(handler);
 }
 
-// Currently, if we've gotten an exception in our discord::Update() function, we create a dump and terminate the program
 LONG CALLBACK discord::ExceptionHandler(EXCEPTION_POINTERS* exception_pointers)
 {
-	MINIDUMP_EXCEPTION_INFORMATION exception_info;
-	exception_info.ClientPointers = TRUE;
-	exception_info.ExceptionPointers = exception_pointers;
-	exception_info.ThreadId = GetCurrentThreadId();
-
-	HANDLE hProcess = GetCurrentProcess();
-	HANDLE hFile = CreateFile(PROJECT_NAME ".dmp", GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-
-	MiniDumpWriteDump(hProcess, GetCurrentProcessId(), hFile, MiniDumpWithDataSegs, &exception_info, NULL, NULL);
-
-	Error("Exception %08X at %08X. A crash dump containing more information has been created in your OMSI folder.",
-		exception_pointers->ExceptionRecord->ExceptionCode, exception_pointers->ExceptionRecord->ExceptionAddress);
-
-	// Normally, we would pass this exception on using EXCEPTION_EXECUTE_HANDLER
-	// Unfortunately, the game's built-in exception handler will throw it away, so we'll just have to terminate the program here
-	TerminateProcess(hProcess, ERROR_UNHANDLED_EXCEPTION);
+	CreateDump(exception_pointers);
 
 	return EXCEPTION_EXECUTE_HANDLER;
 }
