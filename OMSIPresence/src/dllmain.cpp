@@ -1,40 +1,13 @@
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#include <minidumpapiset.h>
-#include <thread>
-
 #include "shared.h"
 #include "discord.h"
 #include "../resource.h"
+
+/* === Main project stuff === */
 
 extern "C" __declspec(dllexport)void __stdcall PluginStart(void* aOwner);
 extern "C" __declspec(dllexport)void __stdcall AccessSystemVariable(unsigned short index, float* value, bool* write);
 extern "C" __declspec(dllexport)void __stdcall AccessVariable(unsigned short index, float* value, bool* write);
 extern "C" __declspec(dllexport)void __stdcall PluginFinalize();
-
-#ifdef PROJECT_DEBUG
-void Debug(const char* message, ...)
-{
-	char buffer[1024];
-	va_list va;
-	va_start(va, message);
-	vsprintf_s(buffer, 1024, message, va);
-
-	SYSTEMTIME time;
-	GetLocalTime(&time);
-	printf("[%02d:%02d:%02d] %s\n", time.wHour, time.wMinute, time.wSecond, buffer);
-}
-#endif
-
-void Error(const char* message, ...)
-{
-	char buffer[1024];
-	va_list va;
-	va_start(va, message);
-	vsprintf_s(buffer, 1024, message, va);
-
-	MessageBoxA(NULL, buffer, PROJECT_NAME " " PROJECT_VERSION, MB_ICONERROR);
-}
 
 BOOL APIENTRY DllMain(HMODULE instance, DWORD, LPVOID)
 {
@@ -42,53 +15,15 @@ BOOL APIENTRY DllMain(HMODULE instance, DWORD, LPVOID)
 	return TRUE;
 }
 
-Offsets* VersionCheck()
+bool VersionCheck()
 {
-	Offsets* o = nullptr;
-
-	// 2.3.004 - Latest Steam version
-	if (!strncmp(reinterpret_cast<char*>(0x8BBEE3), ":33333333", 9))
+	if (!strncmp(reinterpret_cast<char*>(offsets::version_check_address), offsets::version_check_string, offsets::version_check_length))
 	{
-		o = new Offsets();
-
-		o->hard_paused1 = 0x861694;
-		o->hard_paused2 = 0x861BCD;
-
-		o->tmap = 0x861588;
-		o->tmap_friendlyname = 0x158;
-
-		o->tttman = 0x8614E8;
-		o->tttman_lines = 0x18;
-
-		o->trvlist = 0x861508;
-		o->trvlist_getmyvehicle = 0x74A43C;
-
-		o->trvinst_sch_info_valid = 0x65C;
-		o->trvinst_sch_line = 0x660;
-		o->trvinst_sch_next_stop = 0x6AC;
-		o->trvinst_sch_delay = 0x6BC;
-		o->trvinst_trv = 0x710;
-		o->trvinst_target = 0x7BC;
-
-		o->trv_friendlyname = 0x19C;
-		o->trv_hersteller = 0x5D8;
-
-		DEBUG("Detected version 2.3.004");
+		return true;
 	}
 
-	// 2.2.032 - "Tram patch"
-	else if (!strncmp(reinterpret_cast<char*>(0x8BBAE3), ":33333333", 9))
-	{
-		// TODO find new offsets
-		DEBUG("Detected version 2.2.032");
-	}
-
-	else
-	{
-		Error("This version of OMSI 2 is not supported. OMSIPresence cannot continue.");
-	}
-
-	return o;
+	Error("This version of OMSIPresence does not support this version of OMSI 2.");
+	return false;
 }
 
 bool OplCheck()
@@ -100,7 +35,7 @@ bool OplCheck()
 
 	char* opl = reinterpret_cast<char*>(pointer);
 	int length = SizeofResource(dll_instance, resource);
-		
+
 	FILE* file = nullptr;
 	fopen_s(&file, "plugins/OMSIPresence.opl", "rb");
 
@@ -173,35 +108,36 @@ void __stdcall PluginStart(void* aOwner)
 
 	DEBUG("Plugin has started");
 
-	offsets = nullptr;
 	if (!OplCheck())
 	{
 		return;
 	}
 
-	offsets = VersionCheck();
-	if (!offsets)
+	version_ok = VersionCheck();
+	if (!version_ok)
 	{
 		return;
 	}
 
 	discord::Setup();
 	discord::Update();
-
 	DEBUG("Rich presence initialized");
+
+	WriteJmp(offsets::tapplication_idle, TApplication_IdleHook, 6);
+	DEBUG("TApplication.Idle hook at %p", TApplication_IdleHook);
 }
 
 // Gets called each game frame per variable when said system variable receives an update
 void __stdcall AccessSystemVariable(unsigned short index, float* value, bool* write)
 {
 	// Version check failed. Remain dormant
-	if (!offsets)
+	if (!version_ok)
 	{
 		return;
 	}
 
 	// From this point onwards, it is guaranteed that the game will have a map loaded
-	inGame = true;
+	in_game = true;
 
 	// Timegap (delta time)
 	if (index == 0)
@@ -232,12 +168,38 @@ void __stdcall AccessVariable(unsigned short index, float* value, bool* write)
 void __stdcall PluginFinalize()
 {
 	// Version check failed. Remain dormant
-	if (!offsets)
+	if (!version_ok)
 	{
 		return;
 	}
 
 	discord::Destroy();
+}
+
+/* === Utility === */
+
+#ifdef PROJECT_DEBUG
+void Debug(const char* message, ...)
+{
+	char buffer[1024];
+	va_list va;
+	va_start(va, message);
+	vsprintf_s(buffer, 1024, message, va);
+
+	SYSTEMTIME time;
+	GetLocalTime(&time);
+	printf("[%02d:%02d:%02d] %s\n", time.wHour, time.wMinute, time.wSecond, buffer);
+}
+#endif
+
+void Error(const char* message, ...)
+{
+	char buffer[1024];
+	va_list va;
+	va_start(va, message);
+	vsprintf_s(buffer, 1024, message, va);
+
+	MessageBoxA(NULL, buffer, "OMSIPresence " PROJECT_VERSION, MB_ICONERROR);
 }
 
 void CreateDump(EXCEPTION_POINTERS* exception_pointers)
@@ -248,7 +210,7 @@ void CreateDump(EXCEPTION_POINTERS* exception_pointers)
 	exception_info.ThreadId = GetCurrentThreadId();
 
 	HANDLE hProcess = GetCurrentProcess();
-	HANDLE hFile = CreateFile(PROJECT_NAME ".dmp", GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+	HANDLE hFile = CreateFile("OMSIPresence.dmp", GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 
 	MiniDumpWriteDump(hProcess, GetCurrentProcessId(), hFile, MiniDumpWithDataSegs, &exception_info, NULL, NULL);
 
@@ -262,27 +224,25 @@ void CreateDump(EXCEPTION_POINTERS* exception_pointers)
 	TerminateProcess(hProcess, ERROR_UNHANDLED_EXCEPTION);
 }
 
-__declspec(naked)
-uintptr_t TRVList_GetMyVehicle()
-{
-	static uintptr_t trvlist = offsets->trvlist;
-	static uintptr_t trvlist_getmyvehicle = offsets->trvlist_getmyvehicle;
+/* === Game function calls === */
 
+__declspec(naked) uintptr_t TRVList_GetMyVehicle()
+{
 	// Delphi's "register" callconv is incompatible with any VC++ callconvs
 	// This assembly shows exactly how the game calls this function internally
 	__asm
 	{
-		mov     eax, trvlist
+		mov     eax, offsets::trvlist
 		mov     eax, [eax]
-		call    trvlist_getmyvehicle
+		call    offsets::trvlist_getmyvehicle
 		ret
 	}
 }
 
 char* TTimeTableMan_GetLineName(int index)
 {
-	auto tttman = ReadMemory<uintptr_t>(offsets->tttman);
-	auto lines = ReadMemory<uintptr_t>(tttman + offsets->tttman_lines);
+	auto tttman = ReadMemory<uintptr_t>(offsets::tttman);
+	auto lines = ReadMemory<uintptr_t>(tttman + offsets::tttman_lines);
 
 	// According to TTimeTableMan.IsLineIndexValid. Dynamic array size is stored at array address - 4
 	if (index < 0 || index >= ReadMemory<int>(lines - 4))
@@ -292,4 +252,73 @@ char* TTimeTableMan_GetLineName(int index)
 
 	// 0x10 is the size of each element in the list
 	return ReadMemory<char*>(lines + index * 0x10);
+}
+
+/* === Game function hooks === */
+
+constexpr uintptr_t tapplication_idle_return = offsets::tapplication_idle + 6;
+void TApplication_IdleHook()
+{
+	__asm
+	{
+		push    eax
+
+		// Check hard_paused1 value
+		mov     ecx, offsets::hard_paused1
+		mov     ah, [ecx]
+		test    ah, ah
+		jg      is_hp1
+
+		// hard_paused1 = 0
+		mov     al, hard_paused1
+		test    al, al
+		jg      new_hp1
+		jmp     hp2
+
+		// hard_paused1 > 0
+	is_hp1:
+		mov     al, hard_paused1
+		test    al, al
+		je      new_hp1
+		jmp     hp2
+
+		// hard_paused1 doesn't match
+	new_hp1:
+		mov    hard_paused1, ah
+		call   discord::Update
+
+		// Check hard_paused2 value
+	hp2:
+		mov     ecx, offsets::hard_paused2
+		mov     ah, [ecx]
+		test    ah, ah
+		jg      is_hp2
+
+		// hard_paused2 = 0
+		mov     al, hard_paused2
+		test    al, al
+		jg      new_hp2
+		jmp     end
+
+		// hard_paused2 > 0
+	is_hp2:
+		mov     al, hard_paused2
+		test    al, al
+		je      new_hp2
+		jmp     end
+
+		// hard_paused2 doesn't match
+	new_hp2:
+		mov    hard_paused2, ah
+		call   discord::Update
+
+	end:
+		pop     eax
+		push    ebp
+		mov     ebp, esp
+		add     esp, 0xFFFFFFF0
+		push    tapplication_idle_return
+		retn
+	}
+	
 }

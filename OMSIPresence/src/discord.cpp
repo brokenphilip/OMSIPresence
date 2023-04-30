@@ -52,7 +52,7 @@ void discord::Update()
 	// OMSI's internal exception handler will ignore almost all exceptions coming from our plugin, which is why we're using our own
 	void* handler = AddVectoredExceptionHandler(TRUE, discord::ExceptionHandler);
 
-	if (inGame) // Have we loaded into a map this session yet?
+	if (in_game) // Have we loaded into a map this session yet?
 	{
 		/* 
 			PART 1: Get all necessary information from the game
@@ -70,14 +70,14 @@ void discord::Update()
 		static uintptr_t myTMap = 0;
 
 		// If the currently loaded map has changed, get the new name
-		auto myTMap_new = ReadMemory<uintptr_t>(offsets->tmap);
+		auto myTMap_new = ReadMemory<uintptr_t>(offsets::tmap);
 		if (myTMap != myTMap_new)
 		{
 			DEBUG("Found new TMap: %08X -> %08X", myTMap, myTMap_new);
 			myTMap = myTMap_new;
 			if (myTMap)
 			{
-				auto mapname = ReadMemory<wchar_t*>(myTMap + offsets->tmap_friendlyname);
+				auto mapname = ReadMemory<wchar_t*>(myTMap + offsets::tmap_friendlyname);
 
 				if (mapname)
 				{
@@ -111,11 +111,11 @@ void discord::Update()
 			myTRVInst = myTRVInst_new;
 			if (myTRVInst)
 			{
-				auto myTRVehicle = ReadMemory<uintptr_t>(myTRVInst + offsets->trvinst_trv);
+				auto myTRVehicle = ReadMemory<uintptr_t>(myTRVInst + offsets::trvinst_trv);
 				if (myTRVehicle)
 				{
-					auto manufacturer = ReadMemory<char*>(myTRVehicle + offsets->trv_hersteller);
-					auto model = ReadMemory<char*>(myTRVehicle + offsets->trv_friendlyname);
+					auto manufacturer = ReadMemory<char*>(myTRVehicle + offsets::trv_hersteller);
+					auto model = ReadMemory<char*>(myTRVehicle + offsets::trv_friendlyname);
 
 					if (manufacturer && model)
 					{
@@ -139,11 +139,11 @@ void discord::Update()
 			}
 		}
 
+		DEBUG("TEST: hp1 = %d, hp2 = %d", hard_paused1, hard_paused2);
+		
 		// Is the game paused?
 		// TODO: this won't work without a separate thread
-		auto isHardPaused1 = ReadMemory<uint8_t>(offsets->hard_paused1);
-		auto isHardPaused2 = ReadMemory<uint8_t>(offsets->hard_paused2);
-		bool paused = sysvars::pause || (isHardPaused1 > 0) || (isHardPaused2 > 0);
+		bool paused = sysvars::pause || hard_paused1 > 0 || hard_paused2 > 0;
 
 		// Current line
 		#define LINE_SIZE 8
@@ -166,7 +166,7 @@ void discord::Update()
 
 		if (myTRVInst) // If we have a vehicle
 		{
-			auto target = ReadMemory<char*>(myTRVInst + offsets->trvinst_target);
+			auto target = ReadMemory<char*>(myTRVInst + offsets::trvinst_target);
 			if (target)
 			{
 				sprintf_s(terminus, TERMINUS_SIZE, "%s", target);
@@ -176,12 +176,12 @@ void discord::Update()
 				sprintf_s(terminus, TERMINUS_SIZE, "");
 			}
 
-			schedule_valid = ReadMemory<uint8_t>(myTRVInst + offsets->trvinst_sch_info_valid);
+			schedule_valid = ReadMemory<uint8_t>(myTRVInst + offsets::trvinst_sch_info_valid);
 			if (schedule_valid)
 			{
-				schedule_delay = ReadMemory<int>(myTRVInst + offsets->trvinst_sch_delay);
+				schedule_delay = ReadMemory<int>(myTRVInst + offsets::trvinst_sch_delay);
 
-				auto next_stop = ReadMemory<wchar_t*>(myTRVInst + offsets->trvinst_sch_next_stop);
+				auto next_stop = ReadMemory<wchar_t*>(myTRVInst + offsets::trvinst_sch_next_stop);
 				if (next_stop)
 				{
 					WideCharToMultiByte(CP_UTF8, 0, next_stop, NEXT_STOP_SIZE, schedule_next_stop, NEXT_STOP_SIZE, NULL, NULL);
@@ -193,7 +193,7 @@ void discord::Update()
 				}
 
 				// If the currently chosen line index has changed, get the new line
-				auto schedule_line_new = ReadMemory<int>(myTRVInst + offsets->trvinst_sch_line);
+				auto schedule_line_new = ReadMemory<int>(myTRVInst + offsets::trvinst_sch_line);
 				if (schedule_line != schedule_line_new)
 				{
 					DEBUG("Found new line: %d -> %d", schedule_line, schedule_line_new);
