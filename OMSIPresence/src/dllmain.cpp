@@ -243,6 +243,8 @@ void CreateDump(EXCEPTION_POINTERS* exception_pointers)
 
 	MiniDumpWriteDump(hProcess, GetCurrentProcessId(), hFile, MiniDumpWithDataSegs, &exception_info, NULL, NULL);
 
+	CloseHandle(hFile);
+
 	// Get the name of the module our address is in
 	PVOID address = exception_pointers->ExceptionRecord->ExceptionAddress;
 

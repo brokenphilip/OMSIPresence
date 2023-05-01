@@ -473,6 +473,7 @@ LONG CALLBACK discord::ExceptionHandler(EXCEPTION_POINTERS* exception_pointers)
 		handler = nullptr;
 	}
 
+	// NOTE: Might get called multiple times, PROJECT_DEBUG or not. TODO: mitigate this behavior?
 	CreateDump(exception_pointers);
 
 	return EXCEPTION_EXECUTE_HANDLER;
