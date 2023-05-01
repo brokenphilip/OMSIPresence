@@ -139,10 +139,7 @@ void discord::Update()
 			}
 		}
 
-		DEBUG(dbg::info, "TEST: hp1 = %d, hp2 = %d", hard_paused1, hard_paused2);
-		
 		// Is the game paused?
-		// TODO: this won't work without a separate thread
 		bool paused = sysvars::pause || hard_paused1 > 0 || hard_paused2 > 0;
 
 		// Current line
@@ -167,7 +164,7 @@ void discord::Update()
 		if (myTRVInst) // If we have a vehicle
 		{
 			auto target = ReadMemory<char*>(myTRVInst + offsets::trvinst_target);
-			if (target)
+			if (target && strncmp(target, "$allexit$", 10))
 			{
 				sprintf_s(terminus, TERMINUS_SIZE, "%s", target);
 			}
@@ -306,11 +303,11 @@ void discord::Update()
 
 				if (schedule_delay < 0)
 				{
-					sprintf_s(delay, DELAY_SIZE, "-%02d:%02d", -schedule_delay / 60, -schedule_delay % 60);
+					sprintf_s(delay, DELAY_SIZE, "-%01d:%02d", -schedule_delay / 60, -schedule_delay % 60);
 				}
 				else
 				{
-					sprintf_s(delay, DELAY_SIZE, "+%02d:%02d", schedule_delay / 60, schedule_delay % 60);
+					sprintf_s(delay, DELAY_SIZE, "+%01d:%02d", schedule_delay / 60, schedule_delay % 60);
 				}
 
 				if (schedule_delay >= 180) // We're late

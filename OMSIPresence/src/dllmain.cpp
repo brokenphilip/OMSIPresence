@@ -100,6 +100,7 @@ void __stdcall PluginStart(void* aOwner)
 #ifdef PROJECT_DEBUG
 	FILE* console;
 	AllocConsole();
+	SetConsoleTitle("OMSIPresence " PROJECT_VERSION " - Debug");
 
 	freopen_s(&console, "CONIN$", "r", stdin);
 	freopen_s(&console, "CONOUT$", "w", stdout);
@@ -109,7 +110,7 @@ void __stdcall PluginStart(void* aOwner)
 
 	DWORD mode;
 	GetConsoleMode(handle, &mode);
-	SetConsoleMode(handle, (mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN) & ~ENABLE_QUICK_EDIT_MODE);
+	SetConsoleMode(handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN);
 #endif
 
 	DEBUG(dbg::info, "Plugin has started");
