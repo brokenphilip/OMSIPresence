@@ -196,7 +196,7 @@ void discord::Update()
 				auto schedule_line_new = ReadMemory<int>(myTRVInst + offsets::trvinst_sch_line);
 				if (schedule_line != schedule_line_new)
 				{
-					DEBUG(dbg::error, "Found new line: %d -> %d", schedule_line, schedule_line_new);
+					DEBUG(dbg::info, "Found new line: %d -> %d", schedule_line, schedule_line_new);
 					schedule_line = schedule_line_new;
 
 					char* line_name = TTimeTableMan_GetLineName(schedule_line);
