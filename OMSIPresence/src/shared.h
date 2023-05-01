@@ -31,8 +31,16 @@ namespace sysvars
 
 /* === Utility === */
 
+enum class dbg : uint8_t
+{
+	ok,
+	error,
+	warn,
+	info
+};
+
 #ifdef PROJECT_DEBUG
-void Debug(const char* message, ...);
+void Debug(dbg type, const char* message, ...);
 #define DEBUG(...) Debug(__VA_ARGS__)
 #else
 #define DEBUG(...)
@@ -97,7 +105,7 @@ void TApplication_IdleHook();
 
 /* === Offsets === */
 
-// 2.3.004 - Latest Steam version
+#define OMSI_VERSION "2.3.004 - Latest Steam version"
 namespace offsets
 {
 	// String and address of the string that will be used in the version check. Length is automatically calculated at compile time

@@ -19,6 +19,7 @@ bool VersionCheck()
 {
 	if (!strncmp(reinterpret_cast<char*>(offsets::version_check_address), offsets::version_check_string, offsets::version_check_length))
 	{
+		DEBUG(dbg::ok, "Detected version " OMSI_VERSION);
 		return true;
 	}
 
@@ -52,7 +53,7 @@ bool OplCheck()
 	int offset = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
-	DEBUG("OPL length: expected %d, got %d", length, offset);
+	DEBUG(dbg::info, "OPL length: expected %d, got %d", length, offset);
 
 	if (offset == length)
 	{
@@ -62,21 +63,19 @@ bool OplCheck()
 		// OPL files are of identical lengths and their contents match
 		if (!strncmp(opl, contents, length))
 		{
-			DEBUG("OPL consistency check was successful");
+			DEBUG(dbg::ok, "OPL consistency check was successful");
 
 			fclose(file);
 			delete[] contents;
 			return true;
 		}
 
-		DEBUG("OPL files do not match!");
+		DEBUG(dbg::info, "OPL file contents do not match");
 		delete[] contents;
 	}
 	fclose(file);
 
-	DEBUG("OPL consistency check failed");
-
-	// Try to revert the OPL file to its defaults from our resource
+	// Consistency check failed. Try to revert the OPL file to its defaults from our resource
 	fopen_s(&file, "plugins/OMSIPresence.opl", "wb");
 	if (!file)
 	{
@@ -101,30 +100,38 @@ void __stdcall PluginStart(void* aOwner)
 #ifdef PROJECT_DEBUG
 	FILE* console;
 	AllocConsole();
+
 	freopen_s(&console, "CONIN$", "r", stdin);
 	freopen_s(&console, "CONOUT$", "w", stdout);
 	freopen_s(&console, "CONOUT$", "w", stderr);
+
+	HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+
+	DWORD mode;
+	GetConsoleMode(handle, &mode);
+	SetConsoleMode(handle, (mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN) & ~ENABLE_QUICK_EDIT_MODE);
 #endif
 
-	DEBUG("Plugin has started");
-
-	if (!OplCheck())
-	{
-		return;
-	}
+	DEBUG(dbg::info, "Plugin has started");
 
 	version_ok = VersionCheck();
 	if (!version_ok)
 	{
+		DEBUG(dbg::warn, "Version check failed. OMSIPresence will remain dormant");
+		return;
+	}
+
+	if (!OplCheck())
+	{
+		DEBUG(dbg::warn, "OPL consistency check failed. OMSIPresence will remain dormant");
 		return;
 	}
 
 	discord::Setup();
 	discord::Update();
-	DEBUG("Rich presence initialized");
+	DEBUG(dbg::ok, "Rich presence initialized");
 
 	WriteJmp(offsets::tapplication_idle, TApplication_IdleHook, 6);
-	DEBUG("TApplication.Idle hook at %p", TApplication_IdleHook);
 }
 
 // Gets called each game frame per variable when said system variable receives an update
@@ -174,21 +181,31 @@ void __stdcall PluginFinalize()
 	}
 
 	discord::Destroy();
+	DEBUG(dbg::info, "Rich presence destroyed");
 }
 
 /* === Utility === */
 
 #ifdef PROJECT_DEBUG
-void Debug(const char* message, ...)
+void Debug(dbg type, const char* message, ...)
 {
 	char buffer[1024];
 	va_list va;
 	va_start(va, message);
 	vsprintf_s(buffer, 1024, message, va);
 
+	char tag[15] = {0};
+	switch (type)
+	{
+		case dbg::ok: sprintf_s(tag, 15, "\x1B[92m   OK\x1B[0m"); break;
+		case dbg::error: sprintf_s(tag, 15, "\x1B[91mERROR\x1B[0m"); break;
+		case dbg::warn: sprintf_s(tag, 15, "\x1B[93m WARN\x1B[0m"); break;
+		case dbg::info: sprintf_s(tag, 15, "\x1B[97m INFO\x1B[0m"); break;
+	}
+
 	SYSTEMTIME time;
 	GetLocalTime(&time);
-	printf("[%02d:%02d:%02d] %s\n", time.wHour, time.wMinute, time.wSecond, buffer);
+	printf("[%02d:%02d:%02d %s] %s\n", time.wHour, time.wMinute, time.wSecond, tag, buffer);
 }
 #endif
 
@@ -198,6 +215,8 @@ void Error(const char* message, ...)
 	va_list va;
 	va_start(va, message);
 	vsprintf_s(buffer, 1024, message, va);
+
+	DEBUG(dbg::error, "MBox: %s", buffer);
 
 	MessageBoxA(NULL, buffer, "OMSIPresence " PROJECT_VERSION, MB_ICONERROR);
 }

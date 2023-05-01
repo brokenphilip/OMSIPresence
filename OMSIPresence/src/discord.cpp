@@ -73,7 +73,7 @@ void discord::Update()
 		auto myTMap_new = ReadMemory<uintptr_t>(offsets::tmap);
 		if (myTMap != myTMap_new)
 		{
-			DEBUG("Found new TMap: %08X -> %08X", myTMap, myTMap_new);
+			DEBUG(dbg::info, "Found new TMap: %08X -> %08X", myTMap, myTMap_new);
 			myTMap = myTMap_new;
 			if (myTMap)
 			{
@@ -85,13 +85,13 @@ void discord::Update()
 				}
 				else
 				{
-					DEBUG("!! TMap.mapname was null !!");
+					DEBUG(dbg::error, "TMap.mapname was null");
 					sprintf_s(map, MAP_SIZE, "");
 				}
 			}
 			else
 			{
-				DEBUG("!! TMap was null !!");
+				DEBUG(dbg::error, "TMap was null");
 				sprintf_s(map, MAP_SIZE, "");
 			}
 		}
@@ -107,7 +107,7 @@ void discord::Update()
 		uintptr_t myTRVInst_new = TRVList_GetMyVehicle();
 		if (myTRVInst != myTRVInst_new)
 		{
-			DEBUG("Found new TRVInst: %08X -> %08X", myTRVInst, myTRVInst_new);
+			DEBUG(dbg::info, "Found new TRVInst: %08X -> %08X", myTRVInst, myTRVInst_new);
 			myTRVInst = myTRVInst_new;
 			if (myTRVInst)
 			{
@@ -123,13 +123,13 @@ void discord::Update()
 					}
 					else
 					{
-						DEBUG("!! TRoadVehicle.hersteller and/or TRoadVehicle.friendlyname were null !!");
+						DEBUG(dbg::error, "TRoadVehicle.hersteller and/or TRoadVehicle.friendlyname were null");
 						sprintf_s(vehicle, VEHICLE_SIZE, "");
 					}
 				}
 				else
 				{
-					DEBUG("!! TRoadVehicleInst.TRVehicle was null !!");
+					DEBUG(dbg::error, "TRoadVehicleInst.TRVehicle was null");
 					sprintf_s(vehicle, VEHICLE_SIZE, "");
 				}
 			}
@@ -139,7 +139,7 @@ void discord::Update()
 			}
 		}
 
-		DEBUG("TEST: hp1 = %d, hp2 = %d", hard_paused1, hard_paused2);
+		DEBUG(dbg::info, "TEST: hp1 = %d, hp2 = %d", hard_paused1, hard_paused2);
 		
 		// Is the game paused?
 		// TODO: this won't work without a separate thread
@@ -188,7 +188,7 @@ void discord::Update()
 				}
 				else
 				{
-					DEBUG("!! TRoadVehicleInst.AI_Scheduled_NextBusstopName was null !!");
+					DEBUG(dbg::error, "TRoadVehicleInst.AI_Scheduled_NextBusstopName was null");
 					sprintf_s(schedule_next_stop, NEXT_STOP_SIZE, "");
 				}
 
@@ -196,7 +196,7 @@ void discord::Update()
 				auto schedule_line_new = ReadMemory<int>(myTRVInst + offsets::trvinst_sch_line);
 				if (schedule_line != schedule_line_new)
 				{
-					DEBUG("Found new line: %d -> %d", schedule_line, schedule_line_new);
+					DEBUG(dbg::error, "Found new line: %d -> %d", schedule_line, schedule_line_new);
 					schedule_line = schedule_line_new;
 
 					char* line_name = TTimeTableMan_GetLineName(schedule_line);
@@ -206,7 +206,7 @@ void discord::Update()
 					}
 					else
 					{
-						DEBUG("!! TTimeTableMan_GetLineName(%d) was null !!", schedule_line);
+						DEBUG(dbg::error, "TTimeTableMan_GetLineName(%d) was null", schedule_line);
 						sprintf_s(line, LINE_SIZE, "");
 					}
 				}
