@@ -11,7 +11,7 @@
 // Uncomment to use debug mode
 #define PROJECT_DEBUG
 
-#define PROJECT_VERSION "0.3"
+#define PROJECT_VERSION "0.4"
 
 inline HMODULE dll_instance;
 inline float timer = 0;
@@ -93,10 +93,16 @@ inline void WriteJmp(uintptr_t address, void* jump_to, size_t length = 5)
 	WriteNop(address + 5, length - 5);
 }
 
+int ListLength(uintptr_t list);
+bool BoundCheck(uintptr_t list, int index);
+
 /* === Game function calls === */
 
 uintptr_t TRVList_GetMyVehicle();
+
 char* TTimeTableMan_GetLineName(int index);
+
+int TTimeTableMan_GetBusstopCount(int line, int tour, int tour_entry);
 
 /* === Game function hooks === */
 
@@ -130,6 +136,9 @@ namespace offsets
 	// Pointer to the timetable manager
 	constexpr uintptr_t tttman = 0x8614E8;
 
+	// Offset from TTimeTableMan, Trips
+	constexpr uintptr_t tttman_trips = 0xC;
+
 	// Offset from TTimeTableMan, Lines
 	constexpr uintptr_t tttman_lines = 0x18;
 
@@ -144,6 +153,18 @@ namespace offsets
 
 	// Offset from TRoadVehicleInst, AI_Scheduled_Line
 	constexpr uintptr_t trvinst_sch_line = 0x660;
+
+	// Offset from TRoadVehicleInst, AI_Scheduled_Tour
+	constexpr uintptr_t trvinst_sch_tour = 0x664;
+
+	// Offset from TRoadVehicleInst, AI_Scheduled_TourEntry
+	constexpr uintptr_t trvinst_sch_tourentry = 0x668;
+
+	// Offset from TRoadVehicleInst, AI_Scheduled_Trip
+	constexpr uintptr_t trvinst_sch_trip = 0x66C;
+
+	// Offset from TRoadVehicleInst, AI_Scheduled_NextBusstop
+	constexpr uintptr_t trvinst_sch_next = 0x680;
 
 	// Offset from TRoadVehicleInst, AI_Schuduled_NextBusstopName
 	constexpr uintptr_t trvinst_sch_next_stop = 0x6AC;

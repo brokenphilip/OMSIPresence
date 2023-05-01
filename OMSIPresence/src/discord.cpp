@@ -50,7 +50,7 @@ void discord::Destroy()
 void discord::Update()
 {
 	// OMSI's internal exception handler will ignore almost all exceptions coming from our plugin, which is why we're using our own
-	void* handler = AddVectoredExceptionHandler(TRUE, discord::ExceptionHandler);
+	handler = AddVectoredExceptionHandler(TRUE, discord::ExceptionHandler);
 
 	if (in_game) // Have we loaded into a map this session yet?
 	{
@@ -149,6 +149,13 @@ void discord::Update()
 		// Index of the current line in our active schedule
 		static int schedule_line = -1;
 
+		int schedule_tour = -1;
+		int schedule_tourentry = -1;
+		int schedule_count = -1;
+		static int schedule_trip = -1;
+
+		int schedule_next = -1;
+
 		// Is timetable valid & next bus stop delay
 		bool schedule_valid = false;
 		int schedule_delay = 0;
@@ -185,7 +192,8 @@ void discord::Update()
 				}
 				else
 				{
-					DEBUG(dbg::error, "TRoadVehicleInst.AI_Scheduled_NextBusstopName was null");
+					// TODO: Might be ok? When does it happen?
+					DEBUG(dbg::warn, "TRoadVehicleInst.AI_Scheduled_NextBusstopName was null");
 					sprintf_s(schedule_next_stop, NEXT_STOP_SIZE, "");
 				}
 
@@ -203,9 +211,21 @@ void discord::Update()
 					}
 					else
 					{
-						DEBUG(dbg::error, "TTimeTableMan_GetLineName(%d) was null", schedule_line);
+						// Debug is printed in TTimeTableMan_GetLineName
 						sprintf_s(line, LINE_SIZE, "");
 					}
+				}
+
+				schedule_tour = ReadMemory<int>(myTRVInst + offsets::trvinst_sch_tour);
+				schedule_tourentry = ReadMemory<int>(myTRVInst + offsets::trvinst_sch_tourentry);
+				schedule_count = TTimeTableMan_GetBusstopCount(schedule_line, schedule_tour, schedule_tourentry);
+
+				// Next stop 0 means we haven't even started the route yet
+				// Although, when it gets set to 1, shortly after it gets set to 2, so let's assume 0 means it's at the first (1) stop still
+				schedule_next = ReadMemory<int>(myTRVInst + offsets::trvinst_sch_next);
+				if (schedule_next == 0)
+				{
+					schedule_next = 1;
 				}
 			}
 			else // We don't have a schedule
@@ -281,21 +301,26 @@ void discord::Update()
 
 			if (schedule_valid) // We have a schedule
 			{
-				if (strlen(line) > 0 && strlen(terminus) > 0)
+				if (schedule_next > 0 && schedule_count > 0)
 				{
-					sprintf_s(state, STATE_SIZE, LINE_EMOJI " %s => %s", line, terminus);
-				}
-				else if (strlen(line) > 0)
-				{
-					sprintf_s(state, STATE_SIZE, LINE_EMOJI " %s", line);
-				}
-				else if (strlen(terminus) > 0)
-				{
-					sprintf_s(state, STATE_SIZE, LINE_EMOJI " %s", terminus);
+					sprintf_s(state, STATE_SIZE, BUSSTOP_EMOJI " %d/%d | ", schedule_next, schedule_count);
 				}
 				else
 				{
 					sprintf_s(state, STATE_SIZE, "");
+				}
+
+				if (strlen(line) > 0 && strlen(terminus) > 0)
+				{
+					sprintf_s(state, STATE_SIZE, "%s" LINE_EMOJI " %s => %s", state, line, terminus);
+				}
+				else if (strlen(line) > 0)
+				{
+					sprintf_s(state, STATE_SIZE, "%s" LINE_EMOJI " %s", state, line);
+				}
+				else if (strlen(terminus) > 0)
+				{
+					sprintf_s(state, STATE_SIZE, "%s" LINE_EMOJI " %s", state, terminus);
 				}
 
 				#define DELAY_SIZE 16
@@ -433,11 +458,21 @@ void discord::Update()
 
 	Discord_UpdatePresence(presence);
 
-	RemoveVectoredExceptionHandler(handler);
+	if (handler)
+	{
+		RemoveVectoredExceptionHandler(handler);
+		handler = nullptr;
+	}
 }
 
 LONG CALLBACK discord::ExceptionHandler(EXCEPTION_POINTERS* exception_pointers)
 {
+	if (handler)
+	{
+		RemoveVectoredExceptionHandler(handler);
+		handler = nullptr;
+	}
+
 	CreateDump(exception_pointers);
 
 	return EXCEPTION_EXECUTE_HANDLER;

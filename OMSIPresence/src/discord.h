@@ -15,6 +15,9 @@
 // Chequered Flag
 #define LINE_EMOJI "\xF0\x9F\x8F\x81"
 
+// Bus Stop
+#define BUSSTOP_EMOJI "\xF0\x9F\x9A\x8F"
+
 namespace discord
 {
 	// How often in milliseconds to update rich presence
@@ -51,6 +54,8 @@ namespace discord
 	#define CREDITS_SIZE 128
 
 	inline DiscordRichPresence* presence;
+
+	inline void* handler;
 
 	void Setup();
 	void Destroy();

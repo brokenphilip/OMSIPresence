@@ -224,24 +224,70 @@ void Error(const char* message, ...)
 
 void CreateDump(EXCEPTION_POINTERS* exception_pointers)
 {
+	// Set up minidump information
 	MINIDUMP_EXCEPTION_INFORMATION exception_info;
 	exception_info.ClientPointers = TRUE;
 	exception_info.ExceptionPointers = exception_pointers;
 	exception_info.ThreadId = GetCurrentThreadId();
 
+	// Format minidump name to OMSIPresence_HHMMSS.dmp
+	SYSTEMTIME time;
+	GetLocalTime(&time);
+
+	char dmp_filename[24];
+	sprintf_s(dmp_filename, 24, "OMSIPresence_%02d%02d%02d.dmp", time.wHour, time.wMinute, time.wSecond);
+
+	// Write minidump file
 	HANDLE hProcess = GetCurrentProcess();
-	HANDLE hFile = CreateFile("OMSIPresence.dmp", GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+	HANDLE hFile = CreateFile(dmp_filename, GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 
 	MiniDumpWriteDump(hProcess, GetCurrentProcessId(), hFile, MiniDumpWithDataSegs, &exception_info, NULL, NULL);
 
-	Error("Exception %08X at %08X. OMSI 2 cannot continue safely and will be terminated.\n\n"
-		"An OMSIPresence.dmp file containing more information about the crash has been created in your game folder. "
+	// Get the name of the module our address is in
+	PVOID address = exception_pointers->ExceptionRecord->ExceptionAddress;
+
+	char module_name[MAX_PATH] = { 0 };
+	MEMORY_BASIC_INFORMATION memory_info;
+	if (VirtualQuery(address, &memory_info, 28UL))
+	{
+		if (GetModuleFileName((HMODULE)memory_info.AllocationBase, module_name, MAX_PATH))
+		{
+			sprintf_s(module_name, MAX_PATH, " in module %s", strrchr(module_name, '\\') + 1);
+		}
+	}
+
+	// If we're in release, error and terminate. If we're in debug, just print a log message
+	DWORD code = exception_pointers->ExceptionRecord->ExceptionCode;
+	
+#ifndef PROJECT_DEBUG
+	Error("Exception %08X at %08X%s. OMSI 2 cannot continue safely and will be terminated.\n\n"
+		"An %s file containing more information about the crash has been created in your game folder. "
 		"Please submit this file for developer review.",
-		exception_pointers->ExceptionRecord->ExceptionCode, exception_pointers->ExceptionRecord->ExceptionAddress);
+		code, address, module_name, dmp_filename);
 
 	// Normally, we would pass this exception on using EXCEPTION_EXECUTE_HANDLER in our exception handlers which call this function
 	// Unfortunately, the game's built-in exception handler will throw it away, so we'll just have to terminate the program here
 	TerminateProcess(hProcess, ERROR_UNHANDLED_EXCEPTION);
+#else
+	DEBUG(dbg::error, "Exception %08X at %08X%s. Saved to %s", code, address, module_name, dmp_filename);
+#endif
+}
+
+// The length of a dynamic array is located at the list's address minus 4
+inline int ListLength(uintptr_t list)
+{
+	return ReadMemory<int>(list - 4);
+}
+
+// Similar behavior to BoundErr
+inline bool BoundCheck(uintptr_t list, int index)
+{
+	if (index < 0 || index >= ListLength(list))
+	{
+		return false;
+	}
+
+	return true;
 }
 
 /* === Game function calls === */
@@ -259,19 +305,55 @@ __declspec(naked) uintptr_t TRVList_GetMyVehicle()
 	}
 }
 
-char* TTimeTableMan_GetLineName(int index)
+char* TTimeTableMan_GetLineName(int line)
 {
 	auto tttman = ReadMemory<uintptr_t>(offsets::tttman);
 	auto lines = ReadMemory<uintptr_t>(tttman + offsets::tttman_lines);
 
-	// According to TTimeTableMan.IsLineIndexValid. Dynamic array size is stored at array address - 4
-	if (index < 0 || index >= ReadMemory<int>(lines - 4))
+	if (!BoundCheck(lines, line))
 	{
+		DEBUG(dbg::error, "GetLineName: %d is out of bounds (less than 0 or greater than %d)", line, ListLength(lines));
 		return nullptr;
 	}
 
 	// 0x10 is the size of each element in the list
-	return ReadMemory<char*>(lines + index * 0x10);
+	return ReadMemory<char*>(lines + line * 0x10);
+}
+
+int TTimeTableMan_GetBusstopCount(int line, int tour, int tour_entry)
+{
+	auto tttman = ReadMemory<uintptr_t>(offsets::tttman);
+	auto lines = ReadMemory<uintptr_t>(tttman + offsets::tttman_lines);
+	if (!BoundCheck(lines, line))
+	{
+		DEBUG(dbg::error, "GetBusstopCount: Line %d is out of bounds (less than 0 or greater than %d)", line, ListLength(lines));
+		return -1;
+	}
+
+	auto tours_for_line = ReadMemory<uintptr_t>(lines + line * 0x10 + 8);
+	if (!BoundCheck(tours_for_line, tour))
+	{
+		DEBUG(dbg::error, "GetBusstopCount: Tour %d is out of bounds (less than 0 or greater than %d)", tour, ListLength(tours_for_line));
+		return -1;
+	}
+
+	auto entries_for_tour = ReadMemory<uintptr_t>(tours_for_line + tour * 0x24 + 0x2C);
+	if (!BoundCheck(entries_for_tour, tour_entry))
+	{
+		DEBUG(dbg::error, "GetBusstopCount: TourEntry %d is out of bounds (less than 0 or greater than %d)", tour_entry, ListLength(entries_for_tour));
+		return -1;
+	}
+
+	auto trip = ReadMemory<uintptr_t>(entries_for_tour + tour_entry * 0x18 + 0x4);
+	auto trips = ReadMemory<uintptr_t>(tttman + offsets::tttman_trips);
+	if (!BoundCheck(trips, trip))
+	{
+		DEBUG(dbg::error, "GetBusstopCount: Trip %d is out of bounds (less than 0 or greater than %d)", trip, ListLength(trips));
+		return -1;
+	}
+
+	auto stations_for_trip = ReadMemory<uintptr_t>(trips + trip * 0x28 + 0x18);
+	return ListLength(stations_for_trip) - 1;
 }
 
 /* === Game function hooks === */
