@@ -26,7 +26,7 @@ If you encounter any issues during installation or usage, please refer to the [i
 
 # Improvements from OMSI2Drpc
 - The plugin can now also read information directly from memory instead of just through the plugin API
-  - It is no longer required to use a custom vehicle script for each bus in order to receieve additional data
+  - It is no longer required to use a custom vehicle script for each bus in order to receive additional data
   - The plugin no longer relies on IBIS data (in case buses don't use IBIS for example)
   - There is now an easy and proper way to detect if the player is in a vehicle or not
   - It is now possible to get the name of the current vehicle as well
