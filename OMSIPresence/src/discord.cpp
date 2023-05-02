@@ -1,13 +1,7 @@
 #include <chrono>
-#include <cstdint>
-#include <iostream>
-#include <string>
-#include <fstream>
-#include <Windows.h>
 
 #include "discord.h"
-#include "shared.h"
-
+#include "veh.h"
 
 void discord::Setup()
 {
@@ -50,7 +44,7 @@ void discord::Destroy()
 void discord::Update()
 {
 	// OMSI's internal exception handler will ignore almost all exceptions coming from our plugin, which is why we're using our own
-	handler = AddVectoredExceptionHandler(TRUE, discord::ExceptionHandler);
+	veh::AddHandler();
 
 	if (in_game) // Have we loaded into a map this session yet?
 	{
@@ -140,7 +134,7 @@ void discord::Update()
 		}
 
 		// Is the game paused?
-		bool paused = sysvars::pause || hard_paused1 > 0 || hard_paused2 > 0;
+		bool paused = sysvars::pause || hard_paused1 || hard_paused2;
 
 		// Current line
 		#define LINE_SIZE 8
@@ -458,23 +452,5 @@ void discord::Update()
 
 	Discord_UpdatePresence(presence);
 
-	if (handler)
-	{
-		RemoveVectoredExceptionHandler(handler);
-		handler = nullptr;
-	}
-}
-
-LONG CALLBACK discord::ExceptionHandler(EXCEPTION_POINTERS* exception_pointers)
-{
-	if (handler)
-	{
-		RemoveVectoredExceptionHandler(handler);
-		handler = nullptr;
-	}
-
-	// NOTE: Might get called multiple times, PROJECT_DEBUG or not. TODO: mitigate this behavior?
-	CreateDump(exception_pointers);
-
-	return EXCEPTION_EXECUTE_HANDLER;
+	veh::RemoveHandler();
 }

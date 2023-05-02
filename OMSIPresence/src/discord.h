@@ -1,10 +1,8 @@
 #pragma once
-#include <cstdint>
-
-#include "shared.h"
-
 #include "../ext/discord-rpc/discord_rpc.h"
 #include "../ext/discord-rpc/discord_register.h"
+
+#include "shared.h"
 
 // Globe With Meridians
 #define MAP_EMOJI "\xF0\x9F\x8C\x90"
@@ -21,8 +19,9 @@
 namespace discord
 {
 	// How often in milliseconds to update rich presence
-	#define UPDATE_INTERVAL 1000
-	constexpr float update_interval = UPDATE_INTERVAL / 1000;
+	// Currently, the TTimer is using the implicit 1000ms update rate
+	//#define UPDATE_INTERVAL 1000
+	//constexpr float update_interval = UPDATE_INTERVAL / 1000;
 
 	// First row of text under the game name (128 bytes max)
 	inline char* details;
@@ -55,11 +54,7 @@ namespace discord
 
 	inline DiscordRichPresence* presence;
 
-	inline void* handler;
-
 	void Setup();
 	void Destroy();
 	void Update();
-
-	LONG CALLBACK ExceptionHandler(EXCEPTION_POINTERS* exception_info);
 }

@@ -1,5 +1,7 @@
 #include "shared.h"
+
 #include "discord.h"
+#include "veh.h"
 #include "../resource.h"
 
 /* === Main project stuff === */
@@ -131,36 +133,31 @@ void __stdcall PluginStart(void* aOwner)
 	discord::Setup();
 	discord::Update();
 	DEBUG(dbg::ok, "Rich presence initialized");
-}
 
-// Gets called each game frame per variable when said system variable receives an update
-void __stdcall AccessSystemVariable(unsigned short index, float* value, bool* write)
-{
-	// Version check failed. Remain dormant
-	if (!version_ok)
+	// Creates an enabled (implicit) TTimer with a 1 second interval (implicit) and OnTimer set to our function
+	__asm
 	{
-		return;
+		mov     ecx, aOwner
+		mov     dl, 1
+		mov     eax, offsets::ttimer_vtable
+		call    offsets::ttimer_create
+
+		push    aOwner
+		push    OnTimer
+		call    offsets::ttimer_setontimer
 	}
 
+	DEBUG(dbg::ok, "Update TTimer instantiated");
+}
+
+// Gets called as often as each game frame per variable ONLY when a system variable receives an update
+void __stdcall AccessSystemVariable(unsigned short index, float* value, bool* write)
+{
 	// From this point onwards, it is guaranteed that the game will have a map loaded
 	in_game = true;
 
-	// Timegap (delta time)
-	if (index == 0)
-	{
-		timer += *value;
-		if (timer > discord::update_interval)
-		{
-			timer = 0;
-			discord::Update();
-		}
-	}
-
 	// Pause
-	if (index == 1)
-	{
-		sysvars::pause = *value == 1.0f;
-	}
+	sysvars::pause = *value == 1.0f;
 }
 
 // Ditto, but for vehicle variables
@@ -220,66 +217,12 @@ void Error(const char* message, ...)
 	MessageBoxA(NULL, buffer, "OMSIPresence " PROJECT_VERSION, MB_ICONERROR);
 }
 
-void CreateDump(EXCEPTION_POINTERS* exception_pointers)
-{
-	// Set up minidump information
-	MINIDUMP_EXCEPTION_INFORMATION exception_info;
-	exception_info.ClientPointers = TRUE;
-	exception_info.ExceptionPointers = exception_pointers;
-	exception_info.ThreadId = GetCurrentThreadId();
-
-	// Format minidump name to OMSIPresence_HHMMSS.dmp
-	SYSTEMTIME time;
-	GetLocalTime(&time);
-
-	char dmp_filename[24];
-	sprintf_s(dmp_filename, 24, "OMSIPresence_%02d%02d%02d.dmp", time.wHour, time.wMinute, time.wSecond);
-
-	// Write minidump file
-	HANDLE hProcess = GetCurrentProcess();
-	HANDLE hFile = CreateFile(dmp_filename, GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-
-	MiniDumpWriteDump(hProcess, GetCurrentProcessId(), hFile, MiniDumpWithDataSegs, &exception_info, NULL, NULL);
-
-	CloseHandle(hFile);
-
-	// Get the name of the module our address is in
-	PVOID address = exception_pointers->ExceptionRecord->ExceptionAddress;
-
-	char module_name[MAX_PATH] = { 0 };
-	MEMORY_BASIC_INFORMATION memory_info;
-	if (VirtualQuery(address, &memory_info, 28UL))
-	{
-		if (GetModuleFileName((HMODULE)memory_info.AllocationBase, module_name, MAX_PATH))
-		{
-			sprintf_s(module_name, MAX_PATH, " in module %s", strrchr(module_name, '\\') + 1);
-		}
-	}
-
-	// If we're in release, error and terminate. If we're in debug, just print a log message
-	DWORD code = exception_pointers->ExceptionRecord->ExceptionCode;
-	
-#ifndef PROJECT_DEBUG
-	Error("Exception %08X at %08X%s. OMSI 2 cannot continue safely and will be terminated.\n\n"
-		"An %s file containing more information about the crash has been created in your game folder. "
-		"Please submit this file for developer review.",
-		code, address, module_name, dmp_filename);
-
-	// Normally, we would pass this exception on using EXCEPTION_EXECUTE_HANDLER in our exception handlers which call this function
-	// Unfortunately, the game's built-in exception handler will throw it away, so we'll just have to terminate the program here
-	TerminateProcess(hProcess, ERROR_UNHANDLED_EXCEPTION);
-#else
-	DEBUG(dbg::error, "Exception %08X at %08X%s. Saved to %s", code, address, module_name, dmp_filename);
-#endif
-}
-
-// The length of a dynamic array is located at the list's address minus 4
 inline int ListLength(uintptr_t list)
 {
 	return ReadMemory<int>(list - 4);
 }
 
-// Similar behavior to BoundErr
+// Similar behavior to bound checks with BoundErr, inlined throughout OMSI
 inline bool BoundCheck(uintptr_t list, int index)
 {
 	if (index < 0 || index >= ListLength(list))
@@ -290,7 +233,32 @@ inline bool BoundCheck(uintptr_t list, int index)
 	return true;
 }
 
-/* === Game function calls === */
+/* === Game functions === */
+
+__declspec(naked) void OnTimer()
+{
+	__asm
+	{
+		// Skip if we don't have Rich Presence
+		mov     eax, discord::presence
+		test    eax, eax
+		jg      not_null
+		ret
+
+		// Update hard_paused1 and 2 and update
+	not_null:
+		mov     eax, offsets::hard_paused1
+		mov     al, [eax]
+		mov     hard_paused1, al
+
+		mov     eax, offsets::hard_paused2
+		mov     al, [eax]
+		mov     hard_paused2, al
+		
+		call    discord::Update
+		ret
+	}
+}
 
 __declspec(naked) uintptr_t TRVList_GetMyVehicle()
 {
@@ -330,7 +298,7 @@ int TTimeTableMan_GetBusstopCount(int line, int tour, int tour_entry)
 		return -1;
 	}
 
-	auto tours_for_line = ReadMemory<uintptr_t>(lines + line * 0x10 + 8);
+	auto tours_for_line = ReadMemory<uintptr_t>(lines + line * 0x10 + 0x8);
 	if (!BoundCheck(tours_for_line, tour))
 	{
 		DEBUG(dbg::error, "GetBusstopCount: Tour %d is out of bounds (less than 0 or greater than %d)", tour, ListLength(tours_for_line));

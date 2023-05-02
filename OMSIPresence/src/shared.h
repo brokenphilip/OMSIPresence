@@ -2,26 +2,24 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <minidumpapiset.h>
-#include <thread>
 
-#include <cstdint>
+#include <string>
 
 /* === Main project stuff ===*/
 
 // Uncomment to use debug mode
 #define PROJECT_DEBUG
 
-#define PROJECT_VERSION "0.4"
+#define PROJECT_VERSION "0.5"
 
 inline HMODULE dll_instance;
-inline float timer = 0;
 
 /* === Shared data === */
 
 inline bool version_ok = false;
 inline bool in_game = false;
-inline uint8_t hard_paused1 = 0;
-inline uint8_t hard_paused2 = 0;
+inline bool hard_paused1 = 0;
+inline bool hard_paused2 = 0;
 
 namespace sysvars
 {
@@ -47,8 +45,6 @@ void Debug(dbg type, const char* message, ...);
 #endif
 
 void Error(const char* message, ...);
-
-void CreateDump(EXCEPTION_POINTERS* exception_pointers);
 
 template <typename T>
 inline T ReadMemory(uintptr_t address)
@@ -96,7 +92,9 @@ inline void WriteJmp(uintptr_t address, void* jump_to, size_t length = 5)
 int ListLength(uintptr_t list);
 bool BoundCheck(uintptr_t list, int index);
 
-/* === Game function calls === */
+/* === Game functions === */
+
+void OnTimer();
 
 uintptr_t TRVList_GetMyVehicle();
 
@@ -178,4 +176,13 @@ namespace offsets
 
 	// Offset from TRoadVehicle, hersteller (manufacturer)
 	constexpr uintptr_t trv_hersteller = 0x5D8;
+
+	// Location of TTimer's VTable
+	constexpr uintptr_t ttimer_vtable = 0x4F98C4;
+
+	// Location of the function TTimer.Create
+	constexpr uintptr_t ttimer_create = 0x4FD044;
+
+	// Location of the function TTimer.SetOnTimer
+	constexpr uintptr_t ttimer_setontimer = 0x4FD1F8;
 }
