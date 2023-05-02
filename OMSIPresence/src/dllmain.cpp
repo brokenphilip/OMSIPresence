@@ -245,7 +245,7 @@ __declspec(naked) void OnTimer()
 		jg      not_null
 		ret
 
-		// Update hard_paused1 and 2 and update
+		// Get hard_paused1 & hard_paused2 and update
 	not_null:
 		mov     eax, offsets::hard_paused1
 		mov     al, [eax]
