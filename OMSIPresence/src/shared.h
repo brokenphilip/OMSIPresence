@@ -104,11 +104,6 @@ char* TTimeTableMan_GetLineName(int index);
 
 int TTimeTableMan_GetBusstopCount(int line, int tour, int tour_entry);
 
-/* === Game function hooks === */
-
-// Esc menu
-void TApplication_IdleHook();
-
 /* === Offsets === */
 
 #define OMSI_VERSION "2.3.004 - Latest Steam version"
@@ -183,7 +178,4 @@ namespace offsets
 
 	// Offset from TRoadVehicle, hersteller (manufacturer)
 	constexpr uintptr_t trv_hersteller = 0x5D8;
-
-	// Location of the function TApplication.Idle
-	constexpr uintptr_t tapplication_idle = 0x557344;
 }

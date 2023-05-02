@@ -131,8 +131,6 @@ void __stdcall PluginStart(void* aOwner)
 	discord::Setup();
 	discord::Update();
 	DEBUG(dbg::ok, "Rich presence initialized");
-
-	WriteJmp(offsets::tapplication_idle, TApplication_IdleHook, 6);
 }
 
 // Gets called each game frame per variable when said system variable receives an update
@@ -356,73 +354,4 @@ int TTimeTableMan_GetBusstopCount(int line, int tour, int tour_entry)
 
 	auto stations_for_trip = ReadMemory<uintptr_t>(trips + trip * 0x28 + 0x18);
 	return ListLength(stations_for_trip) - 1;
-}
-
-/* === Game function hooks === */
-
-constexpr uintptr_t tapplication_idle_return = offsets::tapplication_idle + 6;
-void TApplication_IdleHook()
-{
-	__asm
-	{
-		push    eax
-
-		// Check hard_paused1 value
-		mov     ecx, offsets::hard_paused1
-		mov     ah, [ecx]
-		test    ah, ah
-		jg      is_hp1
-
-		// hard_paused1 = 0
-		mov     al, hard_paused1
-		test    al, al
-		jg      new_hp1
-		jmp     hp2
-
-		// hard_paused1 > 0
-	is_hp1:
-		mov     al, hard_paused1
-		test    al, al
-		je      new_hp1
-		jmp     hp2
-
-		// hard_paused1 doesn't match
-	new_hp1:
-		mov    hard_paused1, ah
-		call   discord::Update
-
-		// Check hard_paused2 value
-	hp2:
-		mov     ecx, offsets::hard_paused2
-		mov     ah, [ecx]
-		test    ah, ah
-		jg      is_hp2
-
-		// hard_paused2 = 0
-		mov     al, hard_paused2
-		test    al, al
-		jg      new_hp2
-		jmp     end
-
-		// hard_paused2 > 0
-	is_hp2:
-		mov     al, hard_paused2
-		test    al, al
-		je      new_hp2
-		jmp     end
-
-		// hard_paused2 doesn't match
-	new_hp2:
-		mov    hard_paused2, ah
-		call   discord::Update
-
-	end:
-		pop     eax
-		push    ebp
-		mov     ebp, esp
-		add     esp, 0xFFFFFFF0
-		push    tapplication_idle_return
-		retn
-	}
-	
 }
