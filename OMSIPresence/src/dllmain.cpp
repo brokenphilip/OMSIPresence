@@ -305,7 +305,7 @@ int TTimeTableMan_GetBusstopCount(int line, int tour, int tour_entry)
 		return -1;
 	}
 
-	auto entries_for_tour = ReadMemory<uintptr_t>(tours_for_line + tour * 0x24 + 0x2C);
+	auto entries_for_tour = ReadMemory<uintptr_t>(tours_for_line + tour * 0x30 + 0x2C);
 	if (!BoundCheck(entries_for_tour, tour_entry))
 	{
 		DEBUG(dbg::error, "GetBusstopCount: TourEntry %d is out of bounds (less than 0 or greater than %d)", tour_entry, ListLength(entries_for_tour));
