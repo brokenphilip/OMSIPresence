@@ -25,6 +25,9 @@ An OMSI 2 Bus Simulator plugin which integrates Discord Rich Presence into the g
 If you encounter any issues during installation or usage, please refer to the [issue tracker](https://github.com/brokenphilip/OMSIPresence/issues?q=). If you haven't found your issue, feel free to create a new one; ideally submitting your game version, your log file and a crash dump if any, as well as a general idea of what you were doing around the time of the issue (ie. spawning a bus, changing maps, freelooking etc...).
 
 # Improvements from OMSI2Drpc
+- The plugin uses the `TTimer` [Delphi class](https://docwiki.embarcadero.com/Libraries/Alexandria/en/Vcl.ExtCtrls.TTimer) to update Rich Presence (alongside `Access*Variable` functions, but no longer solely relying on them)
+  - This allows the game to update Rich Presence even when the game is "hard-paused" (via ESC (or another open menu) instead of the P key)
+  - In theory, it should perform better as well
 - The plugin can now also read information directly from memory instead of just through the plugin API
   - It is no longer required to use a custom vehicle script for each bus in order to receive additional data
   - The plugin no longer relies on IBIS data (in case buses don't use IBIS for example)
