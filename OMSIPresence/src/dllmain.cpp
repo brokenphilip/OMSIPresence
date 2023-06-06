@@ -115,6 +115,8 @@ void __stdcall PluginStart(void* aOwner)
 	SetConsoleMode(handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN);
 #endif
 
+	discord::presence = nullptr;
+
 	DEBUG(dbg::info, "Plugin has started");
 
 	version_ok = VersionCheck();
@@ -170,14 +172,11 @@ void __stdcall AccessVariable(unsigned short index, float* value, bool* write)
 // Gets called when the game is exiting
 void __stdcall PluginFinalize()
 {
-	// Version check failed. Remain dormant
-	if (!version_ok)
+	if (discord::presence)
 	{
-		return;
+		discord::Destroy();
+		DEBUG(dbg::info, "Rich presence destroyed");
 	}
-
-	discord::Destroy();
-	DEBUG(dbg::info, "Rich presence destroyed");
 }
 
 /* === Utility === */
