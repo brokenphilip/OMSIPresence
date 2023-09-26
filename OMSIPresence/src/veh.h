@@ -1,7 +1,7 @@
 #pragma once
 #include "shared.h"
 
-namespace veh
+namespace VEH
 {
 	inline void* handler = nullptr;
 

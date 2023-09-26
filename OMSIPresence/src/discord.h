@@ -16,7 +16,7 @@
 // Bus Stop
 #define BUSSTOP_EMOJI "\xF0\x9F\x9A\x8F"
 
-namespace discord
+namespace Discord
 {
 	// How often in milliseconds to update rich presence
 	// Currently, the TTimer is using the implicit 1000ms update rate

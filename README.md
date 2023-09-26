@@ -24,7 +24,8 @@ An OMSI 2 Bus Simulator plugin which integrates Discord Rich Presence into the g
 ### Troubleshooting
 If you encounter any issues during installation or usage, please refer to the [issue tracker](https://github.com/brokenphilip/OMSIPresence/issues?q=). If you haven't found your issue, feel free to create a new one; ideally submitting your game version, your log file and a crash dump if any, as well as a general idea of what you were doing around the time of the issue (ie. spawning a bus, changing maps, freelooking etc...).
 
-# Improvements from OMSI2Drpc
+# Features
+The project has seen major improvements since its initial release as OMSI2Drpc in 2020:
 - The plugin uses the `TTimer` [Delphi class](https://docwiki.embarcadero.com/Libraries/Alexandria/en/Vcl.ExtCtrls.TTimer) to update Rich Presence (alongside `Access*Variable` functions, but no longer solely relying on them)
   - This allows the game to update Rich Presence even when the game is "hard-paused" (via ESC (or another open menu) instead of the P key)
   - In theory, it should perform better as well
@@ -34,5 +35,12 @@ If you encounter any issues during installation or usage, please refer to the [i
   - There is now an easy and proper way to detect if the player is in a vehicle or not
   - It is now possible to get the name of the current vehicle as well
   - Map name is no longer read from your vehicle's chosen depot
+- The plugin now has a debug mode and logging functionality
+  - Debug mode can be activated using the `-omsipresence_debug` launch option - the game will continue to run after exceptions and a console is created for live logging output
+  - Log entries are written directly to the `logfile.txt` (unless `-nolog` is active) using the game's own function, prefixed with `[OMSIPresence]`
+- The plugin automatically checks for updates on game start
+  - Depending on your internet connection quality, the game might take noticeably longer to start (protip: check your `logfile.txt` for an accurate measurement)
+  - Can be disabled using the `-omsipresence_noupdate` launch option. **This is not recommended**, only use if you're having issues - please stay up-to-date
+  - This **doesn't** automatically download updates - you are prompted to go to this page instead
 - Unicode characters are now fully supported
 - Rewritten from scratch and open-sourced

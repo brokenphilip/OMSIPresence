@@ -7,19 +7,20 @@
 
 /* === Main project stuff ===*/
 
-// Uncomment to use debug mode
-#define PROJECT_DEBUG
-
-#define PROJECT_VERSION "0.5"
-
-inline HMODULE dll_instance;
+#define PROJECT_VERSION "1.0"
 
 /* === Shared data === */
 
-inline bool version_ok = false;
-inline bool in_game = false;
-inline bool hard_paused1 = 0;
-inline bool hard_paused2 = 0;
+inline HMODULE dll_instance;
+
+inline bool debug = false;
+
+namespace g
+{
+	inline bool first_load = false;
+	inline bool hard_paused1 = false;
+	inline bool hard_paused2 = false;
+}
 
 namespace sysvars
 {
@@ -29,64 +30,43 @@ namespace sysvars
 
 /* === Utility === */
 
-enum class dbg : uint8_t
+struct UnicodeString
 {
-	ok,
-	error,
-	warn,
-	info
+	uint16_t codepage;
+	uint16_t unk_1;
+	uint32_t unk_2;
+	uint32_t length;
+	wchar_t string[1024];
+
+	UnicodeString(const wchar_t* message, ...)
+	{
+		va_list va;
+		va_start(va, message);
+		vswprintf_s(string, 1024, message, va);
+
+		codepage = 0x04B0;
+		unk_1 = 0x0002;
+		unk_2 = 0xFFFFFFFF;
+		length = std::char_traits<wchar_t>::length(string);
+	}
 };
 
-#ifdef PROJECT_DEBUG
-void Debug(dbg type, const char* message, ...);
-#define DEBUG(...) Debug(__VA_ARGS__)
-#else
-#define DEBUG(...)
-#endif
+enum LogType : char
+{
+	LT_PRINT = 0x0, // Prefixless log entries. Only written to logfile.txt if OMSI is started with "-logall". Not used by OMSIPresence
+	LT_INFO  = 0x1, // "Information" log entries. Used by OMSIPresence to log its standard procedures
+	LT_WARN  = 0x2, // "Warning" log entries. Used by OMSIPresence to log generally unwanted (but not critical) states
+	LT_ERROR = 0x3, // "Error" log entries. Used by OMSIPresence to log illegal states, some of which unrecoverable
+	LT_FATAL = 0x4, // "Fatal Error" log entries. Shows a "OMSI will be closed" message box. Not used by OMSIPresence
+};
 
+void Log(LogType type, const char* message, ...);
 void Error(const char* message, ...);
 
 template <typename T>
-inline T ReadMemory(uintptr_t address)
+inline T Read(uintptr_t address)
 {
 	return *reinterpret_cast<T*>(address);
-}
-
-template <typename T>
-inline void WriteMemory(uintptr_t address, T value)
-{
-	DWORD protection_flags = 0;
-	VirtualProtect(reinterpret_cast<LPVOID>(address), sizeof(T), PAGE_EXECUTE_READWRITE, &protection_flags);
-
-	T* memory = reinterpret_cast<T*>(address);
-	*memory = value;
-
-	VirtualProtect(reinterpret_cast<LPVOID>(address), sizeof(T), protection_flags, &protection_flags);
-}
-
-inline void WriteNop(uintptr_t address, int count = 1)
-{
-	DWORD protection_flags = 0;
-	VirtualProtect(reinterpret_cast<LPVOID>(address), count, PAGE_EXECUTE_READWRITE, &protection_flags);
-
-	memset(reinterpret_cast<void*>(address), 0x90, count);
-
-	VirtualProtect(reinterpret_cast<LPVOID>(address), count, protection_flags, &protection_flags);
-}
-
-// NOTE: The jump instruction is 5 bytes
-inline void WriteJmp(uintptr_t address, void* jump_to, size_t length = 5)
-{
-	ptrdiff_t relative = reinterpret_cast<uintptr_t>(jump_to) - address - 5;
-
-	// Write the jump instruction
-	WriteMemory<uint8_t>(address, 0xE9);
-
-	// Write the relative address to jump to
-	WriteMemory<ptrdiff_t>(address + 1, relative);
-
-	// Write nops until we've reached length
-	WriteNop(address + 5, length - 5);
 }
 
 int ListLength(uintptr_t list);
@@ -105,7 +85,7 @@ int TTimeTableMan_GetBusstopCount(int line, int tour, int tour_entry);
 /* === Offsets === */
 
 #define OMSI_VERSION "2.3.004 - Latest Steam version"
-namespace offsets
+namespace Offsets
 {
 	// String and address of the string that will be used in the version check. Length is automatically calculated at compile time
 	constexpr uintptr_t version_check_address = 0x8BBEE3;
@@ -121,68 +101,71 @@ namespace offsets
 	constexpr uintptr_t hard_paused2 = 0x861BCD;
 
 	// Pointer to the map
-	constexpr uintptr_t tmap = 0x861588;
+	constexpr uintptr_t TMap = 0x861588;
 
 	// Offset from TMap, friendlyname
-	constexpr uintptr_t tmap_friendlyname = 0x158;
+	constexpr uintptr_t TMap_friendlyname = 0x158;
 
 	// Pointer to the timetable manager
-	constexpr uintptr_t tttman = 0x8614E8;
+	constexpr uintptr_t TTTMan = 0x8614E8;
 
 	// Offset from TTimeTableMan, Trips
-	constexpr uintptr_t tttman_trips = 0xC;
+	constexpr uintptr_t TTTMan_Trips = 0xC;
 
 	// Offset from TTimeTableMan, Lines
-	constexpr uintptr_t tttman_lines = 0x18;
+	constexpr uintptr_t TTTMan_Lines = 0x18;
 
 	// Pointer to the roadvehicle list (gets created upon launching OMSI)
-	constexpr uintptr_t trvlist = 0x861508;
+	constexpr uintptr_t TRVList = 0x861508;
 
 	// Location of the function TRVList.GetMyVehicle:TRoadVehicleInst
-	constexpr uintptr_t trvlist_getmyvehicle = 0x74A43C;
+	constexpr uintptr_t TRVList_GetMyVehicle = 0x74A43C;
 
 	// Offset from TRoadVehicleInst, AI_Scheduled_Info_Valid
-	constexpr uintptr_t trvinst_sch_info_valid = 0x65C;
+	constexpr uintptr_t TRVInst_Sch_Info_Valid = 0x65C;
 
 	// Offset from TRoadVehicleInst, AI_Scheduled_Line
-	constexpr uintptr_t trvinst_sch_line = 0x660;
+	constexpr uintptr_t TRVInst_Sch_line = 0x660;
 
 	// Offset from TRoadVehicleInst, AI_Scheduled_Tour
-	constexpr uintptr_t trvinst_sch_tour = 0x664;
+	constexpr uintptr_t TRVInst_Sch_Tour = 0x664;
 
 	// Offset from TRoadVehicleInst, AI_Scheduled_TourEntry
-	constexpr uintptr_t trvinst_sch_tourentry = 0x668;
+	constexpr uintptr_t TRVInst_Sch_tourentry = 0x668;
 
 	// Offset from TRoadVehicleInst, AI_Scheduled_Trip
-	constexpr uintptr_t trvinst_sch_trip = 0x66C;
+	constexpr uintptr_t TRVInst_Sch_Trip = 0x66C;
 
 	// Offset from TRoadVehicleInst, AI_Scheduled_NextBusstop
-	constexpr uintptr_t trvinst_sch_next = 0x680;
+	constexpr uintptr_t TRVInst_Sch_NextStop = 0x680;
 
 	// Offset from TRoadVehicleInst, AI_Schuduled_NextBusstopName
-	constexpr uintptr_t trvinst_sch_next_stop = 0x6AC;
+	constexpr uintptr_t TRVInst_Sch_NextStopName = 0x6AC;
 
 	// Offset from TRoadVehicleInst, AI_Scheduled_Delay
-	constexpr uintptr_t trvinst_sch_delay = 0x6BC;
+	constexpr uintptr_t TRVInst_Sch_Delay = 0x6BC;
 
 	// Offset from TRoadVehicleInst, RoadVehicle (pointer to its TRoadVehicle)
-	constexpr uintptr_t trvinst_trv = 0x710;
+	constexpr uintptr_t TRVInst_TRV = 0x710;
 
 	// Offset from TRoadVehicleInst, target_int_string
-	constexpr uintptr_t trvinst_target = 0x7BC;
+	constexpr uintptr_t TRVInst_Target = 0x7BC;
 
 	// Offset from TRoadVehicle, friendlyname
-	constexpr uintptr_t trv_friendlyname = 0x19C;
+	constexpr uintptr_t TRV_friendlyname = 0x19C;
 
 	// Offset from TRoadVehicle, hersteller (manufacturer)
-	constexpr uintptr_t trv_hersteller = 0x5D8;
+	constexpr uintptr_t TRV_hersteller = 0x5D8;
 
 	// Location of TTimer's VTable
-	constexpr uintptr_t ttimer_vtable = 0x4F98C4;
+	constexpr uintptr_t TTimer_vtable = 0x4F98C4;
 
 	// Location of the function TTimer.Create
-	constexpr uintptr_t ttimer_create = 0x4FD044;
+	constexpr uintptr_t TTimer_Create = 0x4FD044;
 
 	// Location of the function TTimer.SetOnTimer
-	constexpr uintptr_t ttimer_setontimer = 0x4FD1F8;
+	constexpr uintptr_t TTimer_SetOnTimer = 0x4FD1F8;
+
+	// Location of the function AddLogEntry (custom name, xref " - Fatal Error:       " to find it)
+	constexpr uintptr_t AddLogEntry = 0x8022C0;
 }

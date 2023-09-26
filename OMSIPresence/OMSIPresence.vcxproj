@@ -49,7 +49,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>ext/discord-rpc/discord-rpc.lib;dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>ext/discord-rpc/discord-rpc.lib;dbghelp.lib;urlmon.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>OMSIPresence.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>

@@ -1,3 +1,7 @@
+#include <urlmon.h>
+#include <comdef.h>
+#include <time.h>
+
 #include "shared.h"
 
 #include "discord.h"
@@ -6,10 +10,10 @@
 
 /* === Main project stuff === */
 
-extern "C" __declspec(dllexport)void __stdcall PluginStart(void* aOwner);
-extern "C" __declspec(dllexport)void __stdcall AccessSystemVariable(unsigned short index, float* value, bool* write);
-extern "C" __declspec(dllexport)void __stdcall AccessVariable(unsigned short index, float* value, bool* write);
-extern "C" __declspec(dllexport)void __stdcall PluginFinalize();
+extern "C" __declspec(dllexport) void __stdcall PluginStart(void* aOwner);
+extern "C" __declspec(dllexport) void __stdcall AccessSystemVariable(unsigned short index, float* value, bool* write);
+extern "C" __declspec(dllexport) void __stdcall AccessVariable(unsigned short index, float* value, bool* write);
+extern "C" __declspec(dllexport) void __stdcall PluginFinalize();
 
 BOOL APIENTRY DllMain(HMODULE instance, DWORD, LPVOID)
 {
@@ -19,9 +23,9 @@ BOOL APIENTRY DllMain(HMODULE instance, DWORD, LPVOID)
 
 bool VersionCheck()
 {
-	if (!strncmp(reinterpret_cast<char*>(offsets::version_check_address), offsets::version_check_string, offsets::version_check_length))
+	if (!strncmp(reinterpret_cast<char*>(Offsets::version_check_address), Offsets::version_check_string, Offsets::version_check_length))
 	{
-		DEBUG(dbg::ok, "Detected version " OMSI_VERSION);
+		Log(LT_INFO, "Detected version " OMSI_VERSION);
 		return true;
 	}
 
@@ -55,7 +59,7 @@ bool OplCheck()
 	int offset = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
-	DEBUG(dbg::info, "OPL length: expected %d, got %d", length, offset);
+	Log(LT_INFO, "OPL length: expected %d, got %d", length, offset);
 
 	if (offset == length)
 	{
@@ -65,14 +69,14 @@ bool OplCheck()
 		// OPL files are of identical lengths and their contents match
 		if (!strncmp(opl, contents, length))
 		{
-			DEBUG(dbg::ok, "OPL consistency check was successful");
+			Log(LT_INFO, "OPL consistency check was successful");
 
 			fclose(file);
 			delete[] contents;
 			return true;
 		}
 
-		DEBUG(dbg::info, "OPL file contents do not match");
+		Log(LT_WARN, "OPL file contents do not match");
 		delete[] contents;
 	}
 	fclose(file);
@@ -96,67 +100,145 @@ bool OplCheck()
 	return false;
 }
 
+void UpdateCheck()
+{
+	Log(LT_INFO, "Checking for updates...");
+
+	/*
+	// HACK: Append current unix time as an unused query string to avoid caching
+	char url[128] = { 0 };
+	sprintf_s(url, 128, "https://api.github.com/repos/brokenphilip/OMSIPresence/tags?%lld", time(NULL));
+	*/
+
+	// Attempt to connect
+	IStream* stream;
+	HRESULT result = URLOpenBlockingStreamA(0, "https://api.github.com/repos/brokenphilip/OMSIPresence/tags", &stream, 0, 0);
+	if (FAILED(result))
+	{
+		Log(LT_WARN, "Connection failed with HRESULT %lX: %s", result, _com_error(result).ErrorMessage());
+		return;
+	}
+
+	// Read first 32 bytes from the result, we don't need any more
+	char buffer[32] = { 0 };
+	stream->Read(buffer, 31, nullptr);
+	stream->Release();
+
+	// Parse the response using tokens
+	auto seps = "\"";
+	char* next_token = nullptr;
+	char* token = strtok_s(buffer, seps, &next_token);
+
+	for (int i = 0; token != nullptr && i < 3; i++)
+	{
+		token = strtok_s(NULL, seps, &next_token);
+
+		// First should just be "name"
+		if (i == 0 && strncmp(token, "name", 4))
+		{
+			break;
+		}
+
+		// Third should be the latest released version
+		if (i == 2)
+		{
+			Log(LT_INFO, "Version check complete, latest version is %s", token);
+
+			constexpr size_t len = std::char_traits<char>::length(PROJECT_VERSION);
+			size_t len2 = strlen(token);
+
+			// If versions do not match, prompt to be taken to the OMSIPresence page
+			if (strncmp(token, PROJECT_VERSION, ((len > len2) ? len : len2)))
+			{
+				char msg[256];
+				sprintf_s(msg, 256, "An update to OMSIPresence is available!\n\nYour version: " PROJECT_VERSION "\nLatest version: %s\n\n"
+					"Would you like to go to the OMSIPresence page now?", token);
+
+				if (MessageBoxA(NULL, msg, "OMSIPresence " PROJECT_VERSION, MB_ICONINFORMATION | MB_YESNO) == IDYES)
+				{
+					ShellExecuteA(NULL, NULL, "https://github.com/brokenphilip/OMSIPresence", NULL, NULL, SW_SHOW);
+				}
+			}
+
+			return;
+		}
+	}
+
+	Log(LT_WARN, "Version check failed to parse the response");
+}
+
 // Gets called when the game starts
 void __stdcall PluginStart(void* aOwner)
 {
-#ifdef PROJECT_DEBUG
-	FILE* console;
-	AllocConsole();
-	SetConsoleTitle("OMSIPresence " PROJECT_VERSION " - Debug");
+	Discord::presence = nullptr;
 
-	freopen_s(&console, "CONIN$", "r", stdin);
-	freopen_s(&console, "CONOUT$", "w", stdout);
-	freopen_s(&console, "CONOUT$", "w", stderr);
-
-	HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
-
-	DWORD mode;
-	GetConsoleMode(handle, &mode);
-	SetConsoleMode(handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN);
-#endif
-
-	discord::presence = nullptr;
-
-	DEBUG(dbg::info, "Plugin has started");
-
-	version_ok = VersionCheck();
-	if (!version_ok)
+	debug = strstr(GetCommandLineA(), "-omsipresence_debug");
+	if (debug)
 	{
-		DEBUG(dbg::warn, "Version check failed. OMSIPresence will remain dormant");
+		FILE* console;
+		AllocConsole();
+		SetConsoleTitle("OMSIPresence " PROJECT_VERSION " - Debug");
+
+		freopen_s(&console, "CONIN$", "r", stdin);
+		freopen_s(&console, "CONOUT$", "w", stdout);
+		freopen_s(&console, "CONOUT$", "w", stderr);
+
+		HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+
+		DWORD mode;
+		GetConsoleMode(handle, &mode);
+		SetConsoleMode(handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN);
+	}
+
+	Log(LT_INFO, "Plugin has started (%sversion " PROJECT_VERSION ")", (debug? "in DEBUG mode, " : ""));
+
+	if (!VersionCheck())
+	{
+		Log(LT_WARN, "Version check failed. OMSIPresence will remain dormant");
 		return;
 	}
 
 	if (!OplCheck())
 	{
-		DEBUG(dbg::warn, "OPL consistency check failed. OMSIPresence will remain dormant");
+		Log(LT_WARN, "OPL consistency check failed. OMSIPresence will remain dormant");
 		return;
 	}
 
-	discord::Setup();
-	discord::Update();
-	DEBUG(dbg::ok, "Rich presence initialized");
+	if (strstr(GetCommandLineA(), "-omsipresence_noupdate"))
+	{
+		Log(LT_WARN, "Skipping update check due to launch option. "
+			"It is highly recommended you stay up-to-date, so please only use this option if you're having issues");
+	}
+	else
+	{
+		UpdateCheck();
+	}
+
+	Discord::Setup();
+	Discord::Update();
+	Log(LT_INFO, "Rich presence initialized");
 
 	// Creates an enabled (implicit) TTimer with a 1 second interval (implicit) and OnTimer set to our function
 	__asm
 	{
 		mov     ecx, aOwner
 		mov     dl, 1
-		mov     eax, offsets::ttimer_vtable
-		call    offsets::ttimer_create
+		mov     eax, Offsets::TTimer_vtable
+		call    Offsets::TTimer_Create
 
 		push    aOwner
 		push    OnTimer
-		call    offsets::ttimer_setontimer
+		call    Offsets::TTimer_SetOnTimer
 	}
 
-	DEBUG(dbg::ok, "Update TTimer instantiated");
+	Log(LT_INFO, "Update TTimer instantiated");
 }
 
 // Gets called as often as each game frame per variable ONLY when a system variable receives an update
 void __stdcall AccessSystemVariable(unsigned short index, float* value, bool* write)
 {
 	// From this point onwards, it is guaranteed that the game will have a map loaded
-	in_game = true;
+	g::first_load = true;
 
 	// Pause
 	sysvars::pause = *value == 1.0f;
@@ -172,37 +254,54 @@ void __stdcall AccessVariable(unsigned short index, float* value, bool* write)
 // Gets called when the game is exiting
 void __stdcall PluginFinalize()
 {
-	if (discord::presence)
+	if (Discord::presence)
 	{
-		discord::Destroy();
-		DEBUG(dbg::info, "Rich presence destroyed");
+		Discord::Destroy();
+		Log(LT_INFO, "Rich presence destroyed");
 	}
+
+	Log(LT_INFO, "Plugin finalized");
 }
 
 /* === Utility === */
 
-#ifdef PROJECT_DEBUG
-void Debug(dbg type, const char* message, ...)
+void Log(LogType log_t, const char* message, ...)
 {
 	char buffer[1024];
 	va_list va;
 	va_start(va, message);
 	vsprintf_s(buffer, 1024, message, va);
 
-	char tag[15] = {0};
-	switch (type)
+	if (debug)
 	{
-		case dbg::ok: sprintf_s(tag, 15, "\x1B[92m   OK\x1B[0m"); break;
-		case dbg::error: sprintf_s(tag, 15, "\x1B[91mERROR\x1B[0m"); break;
-		case dbg::warn: sprintf_s(tag, 15, "\x1B[93m WARN\x1B[0m"); break;
-		case dbg::info: sprintf_s(tag, 15, "\x1B[97m INFO\x1B[0m"); break;
+		char tag[15] = { 0 };
+		switch (log_t)
+		{
+			case LT_FATAL:
+			case LT_ERROR: sprintf_s(tag, 15, "\x1B[91mERROR\x1B[0m"); break;
+
+			case LT_WARN: sprintf_s(tag, 15, "\x1B[93m WARN\x1B[0m"); break;
+
+			/* LT_PRINT, LT_INFO */
+			default: sprintf_s(tag, 15, "\x1B[97m INFO\x1B[0m"); break;
+		}
+
+		SYSTEMTIME time;
+		GetLocalTime(&time);
+		printf("[%02d:%02d:%02d %s] %s\n", time.wHour, time.wMinute, time.wSecond, tag, buffer);
 	}
 
-	SYSTEMTIME time;
-	GetLocalTime(&time);
-	printf("[%02d:%02d:%02d %s] %s\n", time.wHour, time.wMinute, time.wSecond, tag, buffer);
+	int a = 2;
+
+	wchar_t* log = UnicodeString(L"[OMSIPresence] %hs", buffer).string;
+
+	__asm
+	{
+		mov     eax, log
+		mov     dl, log_t
+		call    Offsets::AddLogEntry
+	}
 }
-#endif
 
 void Error(const char* message, ...)
 {
@@ -211,14 +310,14 @@ void Error(const char* message, ...)
 	va_start(va, message);
 	vsprintf_s(buffer, 1024, message, va);
 
-	DEBUG(dbg::error, "MBox: %s", buffer);
+	//Log(LT_ERROR, "MBox: %s", buffer);
 
 	MessageBoxA(NULL, buffer, "OMSIPresence " PROJECT_VERSION, MB_ICONERROR);
 }
 
 inline int ListLength(uintptr_t list)
 {
-	return ReadMemory<int>(list - 4);
+	return Read<int>(list - 4);
 }
 
 // Similar behavior to bound checks with BoundErr, inlined throughout OMSI
@@ -239,22 +338,22 @@ __declspec(naked) void OnTimer()
 	__asm
 	{
 		// Skip if we don't have Rich Presence
-		mov     eax, discord::presence
+		mov     eax, Discord::presence
 		test    eax, eax
 		jg      not_null
 		ret
 
 		// Get hard_paused1 & hard_paused2 and update
 	not_null:
-		mov     eax, offsets::hard_paused1
+		mov     eax, Offsets::hard_paused1
 		mov     al, [eax]
-		mov     hard_paused1, al
+		mov     g::hard_paused1, al
 
-		mov     eax, offsets::hard_paused2
+		mov     eax, Offsets::hard_paused2
 		mov     al, [eax]
-		mov     hard_paused2, al
+		mov     g::hard_paused2, al
 		
-		call    discord::Update
+		call    Discord::Update
 		ret
 	}
 }
@@ -265,60 +364,60 @@ __declspec(naked) uintptr_t TRVList_GetMyVehicle()
 	// This assembly shows exactly how the game calls this function internally
 	__asm
 	{
-		mov     eax, offsets::trvlist
+		mov     eax, Offsets::TRVList
 		mov     eax, [eax]
-		call    offsets::trvlist_getmyvehicle
+		call    Offsets::TRVList_GetMyVehicle
 		ret
 	}
 }
 
 char* TTimeTableMan_GetLineName(int line)
 {
-	auto tttman = ReadMemory<uintptr_t>(offsets::tttman);
-	auto lines = ReadMemory<uintptr_t>(tttman + offsets::tttman_lines);
+	auto tttman = Read<uintptr_t>(Offsets::TTTMan);
+	auto lines = Read<uintptr_t>(tttman + Offsets::TTTMan_Lines);
 
 	if (!BoundCheck(lines, line))
 	{
-		DEBUG(dbg::error, "GetLineName: %d is out of bounds (less than 0 or greater than %d)", line, ListLength(lines));
+		Log(LT_ERROR, "GetLineName: %d is out of bounds (less than 0 or greater than %d)", line, ListLength(lines));
 		return nullptr;
 	}
 
 	// 0x10 is the size of each element in the list
-	return ReadMemory<char*>(lines + line * 0x10);
+	return Read<char*>(lines + line * 0x10);
 }
 
 int TTimeTableMan_GetBusstopCount(int line, int tour, int tour_entry)
 {
-	auto tttman = ReadMemory<uintptr_t>(offsets::tttman);
-	auto lines = ReadMemory<uintptr_t>(tttman + offsets::tttman_lines);
+	auto tttman = Read<uintptr_t>(Offsets::TTTMan);
+	auto lines = Read<uintptr_t>(tttman + Offsets::TTTMan_Lines);
 	if (!BoundCheck(lines, line))
 	{
-		DEBUG(dbg::error, "GetBusstopCount: Line %d is out of bounds (less than 0 or greater than %d)", line, ListLength(lines));
+		Log(LT_ERROR, "GetBusstopCount: Line %d is out of bounds (less than 0 or greater than %d)", line, ListLength(lines));
 		return -1;
 	}
 
-	auto tours_for_line = ReadMemory<uintptr_t>(lines + line * 0x10 + 0x8);
+	auto tours_for_line = Read<uintptr_t>(lines + line * 0x10 + 0x8);
 	if (!BoundCheck(tours_for_line, tour))
 	{
-		DEBUG(dbg::error, "GetBusstopCount: Tour %d is out of bounds (less than 0 or greater than %d)", tour, ListLength(tours_for_line));
+		Log(LT_ERROR, "GetBusstopCount: Tour %d is out of bounds (less than 0 or greater than %d)", tour, ListLength(tours_for_line));
 		return -1;
 	}
 
-	auto entries_for_tour = ReadMemory<uintptr_t>(tours_for_line + tour * 0x30 + 0x2C);
+	auto entries_for_tour = Read<uintptr_t>(tours_for_line + tour * 0x30 + 0x2C);
 	if (!BoundCheck(entries_for_tour, tour_entry))
 	{
-		DEBUG(dbg::error, "GetBusstopCount: TourEntry %d is out of bounds (less than 0 or greater than %d)", tour_entry, ListLength(entries_for_tour));
+		Log(LT_ERROR, "GetBusstopCount: TourEntry %d is out of bounds (less than 0 or greater than %d)", tour_entry, ListLength(entries_for_tour));
 		return -1;
 	}
 
-	auto trip = ReadMemory<uintptr_t>(entries_for_tour + tour_entry * 0x18 + 0x4);
-	auto trips = ReadMemory<uintptr_t>(tttman + offsets::tttman_trips);
+	auto trip = Read<uintptr_t>(entries_for_tour + tour_entry * 0x18 + 0x4);
+	auto trips = Read<uintptr_t>(tttman + Offsets::TTTMan_Trips);
 	if (!BoundCheck(trips, trip))
 	{
-		DEBUG(dbg::error, "GetBusstopCount: Trip %d is out of bounds (less than 0 or greater than %d)", trip, ListLength(trips));
+		Log(LT_ERROR, "GetBusstopCount: Trip %d is out of bounds (less than 0 or greater than %d)", trip, ListLength(trips));
 		return -1;
 	}
 
-	auto stations_for_trip = ReadMemory<uintptr_t>(trips + trip * 0x28 + 0x18);
+	auto stations_for_trip = Read<uintptr_t>(trips + trip * 0x28 + 0x18);
 	return ListLength(stations_for_trip) - 1;
 }

@@ -3,7 +3,7 @@
 #include "discord.h"
 #include "veh.h"
 
-void discord::Setup()
+void Discord::Setup()
 {
 	details = new char[DETAILS_SIZE] {0};
 	state = new char[STATE_SIZE] {0};
@@ -27,7 +27,7 @@ void discord::Setup()
 	Discord_Initialize("783688666823524353", &handlers, 1, NULL);
 }
 
-void discord::Destroy()
+void Discord::Destroy()
 {
 	Discord_ClearPresence();
 	Discord_Shutdown();
@@ -41,12 +41,12 @@ void discord::Destroy()
 	delete[] credits;
 }
 
-void discord::Update()
+void Discord::Update()
 {
 	// OMSI's internal exception handler will ignore almost all exceptions coming from our plugin, which is why we're using our own
-	veh::AddHandler();
+	VEH::AddHandler();
 
-	if (in_game) // Have we loaded into a map this session yet?
+	if (g::first_load) // Have we loaded into a map this session yet?
 	{
 		/* 
 			PART 1: Get all necessary information from the game
@@ -58,20 +58,20 @@ void discord::Update()
 
 		// Map name
 		#define MAP_SIZE 32
-		static char* map = new char[MAP_SIZE] {0};
+		static char map[MAP_SIZE] = {0};
 
 		// Pointer to the currently loaded TMap
 		static uintptr_t myTMap = 0;
 
 		// If the currently loaded map has changed, get the new name
-		auto myTMap_new = ReadMemory<uintptr_t>(offsets::tmap);
+		auto myTMap_new = Read<uintptr_t>(Offsets::TMap);
 		if (myTMap != myTMap_new)
 		{
-			DEBUG(dbg::info, "Found new TMap: %08X -> %08X", myTMap, myTMap_new);
+			Log(LT_INFO, "Found new TMap: %08X -> %08X", myTMap, myTMap_new);
 			myTMap = myTMap_new;
 			if (myTMap)
 			{
-				auto mapname = ReadMemory<wchar_t*>(myTMap + offsets::tmap_friendlyname);
+				auto mapname = Read<wchar_t*>(myTMap + Offsets::TMap_friendlyname);
 
 				if (mapname)
 				{
@@ -79,20 +79,20 @@ void discord::Update()
 				}
 				else
 				{
-					DEBUG(dbg::error, "TMap.mapname was null");
+					Log(LT_ERROR, "TMap.mapname was null");
 					sprintf_s(map, MAP_SIZE, "");
 				}
 			}
 			else
 			{
-				DEBUG(dbg::error, "TMap was null");
+				Log(LT_ERROR, "TMap was null");
 				sprintf_s(map, MAP_SIZE, "");
 			}
 		}
 
 		// Vehicle name
 		#define VEHICLE_SIZE 64
-		static char* vehicle = new char[VEHICLE_SIZE] {0};
+		static char vehicle[VEHICLE_SIZE] = {0};
 
 		// Pointer to our currently driven TRoadVehicleInst
 		static uintptr_t myTRVInst = 0;
@@ -101,15 +101,15 @@ void discord::Update()
 		uintptr_t myTRVInst_new = TRVList_GetMyVehicle();
 		if (myTRVInst != myTRVInst_new)
 		{
-			DEBUG(dbg::info, "Found new TRVInst: %08X -> %08X", myTRVInst, myTRVInst_new);
+			Log(LT_INFO, "Found new TRVInst: %08X -> %08X", myTRVInst, myTRVInst_new);
 			myTRVInst = myTRVInst_new;
 			if (myTRVInst)
 			{
-				auto myTRVehicle = ReadMemory<uintptr_t>(myTRVInst + offsets::trvinst_trv);
+				auto myTRVehicle = Read<uintptr_t>(myTRVInst + Offsets::TRVInst_TRV);
 				if (myTRVehicle)
 				{
-					auto manufacturer = ReadMemory<char*>(myTRVehicle + offsets::trv_hersteller);
-					auto model = ReadMemory<char*>(myTRVehicle + offsets::trv_friendlyname);
+					auto manufacturer = Read<char*>(myTRVehicle + Offsets::TRV_hersteller);
+					auto model = Read<char*>(myTRVehicle + Offsets::TRV_friendlyname);
 
 					if (manufacturer && model)
 					{
@@ -117,13 +117,13 @@ void discord::Update()
 					}
 					else
 					{
-						DEBUG(dbg::error, "TRoadVehicle.hersteller and/or TRoadVehicle.friendlyname were null");
+						Log(LT_ERROR, "TRoadVehicle.hersteller and/or TRoadVehicle.friendlyname were null");
 						sprintf_s(vehicle, VEHICLE_SIZE, "");
 					}
 				}
 				else
 				{
-					DEBUG(dbg::error, "TRoadVehicleInst.TRVehicle was null");
+					Log(LT_ERROR, "TRoadVehicleInst.TRVehicle was null");
 					sprintf_s(vehicle, VEHICLE_SIZE, "");
 				}
 			}
@@ -134,11 +134,11 @@ void discord::Update()
 		}
 
 		// Is the game paused?
-		bool paused = sysvars::pause || hard_paused1 || hard_paused2;
+		bool paused = sysvars::pause || g::hard_paused1 || g::hard_paused2;
 
 		// Current line
 		#define LINE_SIZE 8
-		static char* line = new char[LINE_SIZE] {0};
+		static char line[LINE_SIZE] = {0};
 
 		// Index of the current line in our active schedule
 		static int schedule_line = -1;
@@ -156,15 +156,15 @@ void discord::Update()
 
 		// Next bus stop
 		#define NEXT_STOP_SIZE 32
-		static char* schedule_next_stop = new char[NEXT_STOP_SIZE] {0};
+		static char schedule_next_stop[NEXT_STOP_SIZE] = {0};
 
 		// Destination/terminus
 		#define TERMINUS_SIZE 32
-		static char* terminus = new char[TERMINUS_SIZE] {0};
+		static char terminus[TERMINUS_SIZE] = {0};
 
 		if (myTRVInst) // If we have a vehicle
 		{
-			auto target = ReadMemory<char*>(myTRVInst + offsets::trvinst_target);
+			auto target = Read<char*>(myTRVInst + Offsets::TRVInst_Target);
 			if (target && strncmp(target, "$allexit$", 10))
 			{
 				sprintf_s(terminus, TERMINUS_SIZE, "%s", target);
@@ -174,12 +174,12 @@ void discord::Update()
 				sprintf_s(terminus, TERMINUS_SIZE, "");
 			}
 
-			schedule_valid = ReadMemory<uint8_t>(myTRVInst + offsets::trvinst_sch_info_valid);
+			schedule_valid = Read<uint8_t>(myTRVInst + Offsets::TRVInst_Sch_Info_Valid);
 			if (schedule_valid)
 			{
-				schedule_delay = ReadMemory<int>(myTRVInst + offsets::trvinst_sch_delay);
+				schedule_delay = Read<int>(myTRVInst + Offsets::TRVInst_Sch_Delay);
 
-				auto next_stop = ReadMemory<wchar_t*>(myTRVInst + offsets::trvinst_sch_next_stop);
+				auto next_stop = Read<wchar_t*>(myTRVInst + Offsets::TRVInst_Sch_NextStopName);
 				if (next_stop)
 				{
 					WideCharToMultiByte(CP_UTF8, 0, next_stop, NEXT_STOP_SIZE, schedule_next_stop, NEXT_STOP_SIZE, NULL, NULL);
@@ -187,15 +187,15 @@ void discord::Update()
 				else
 				{
 					// TODO: Might be ok? When does it happen?
-					DEBUG(dbg::warn, "TRoadVehicleInst.AI_Scheduled_NextBusstopName was null");
+					Log(LT_WARN, "TRoadVehicleInst.AI_Scheduled_NextBusstopName was null");
 					sprintf_s(schedule_next_stop, NEXT_STOP_SIZE, "");
 				}
 
 				// If the currently chosen line index has changed, get the new line
-				auto schedule_line_new = ReadMemory<int>(myTRVInst + offsets::trvinst_sch_line);
+				auto schedule_line_new = Read<int>(myTRVInst + Offsets::TRVInst_Sch_line);
 				if (schedule_line != schedule_line_new)
 				{
-					DEBUG(dbg::info, "Found new line: %d -> %d", schedule_line, schedule_line_new);
+					Log(LT_INFO, "Found new line: %d -> %d", schedule_line, schedule_line_new);
 					schedule_line = schedule_line_new;
 
 					char* line_name = TTimeTableMan_GetLineName(schedule_line);
@@ -210,13 +210,13 @@ void discord::Update()
 					}
 				}
 
-				schedule_tour = ReadMemory<int>(myTRVInst + offsets::trvinst_sch_tour);
-				schedule_tourentry = ReadMemory<int>(myTRVInst + offsets::trvinst_sch_tourentry);
+				schedule_tour = Read<int>(myTRVInst + Offsets::TRVInst_Sch_Tour);
+				schedule_tourentry = Read<int>(myTRVInst + Offsets::TRVInst_Sch_tourentry);
 				schedule_count = TTimeTableMan_GetBusstopCount(schedule_line, schedule_tour, schedule_tourentry);
 
 				// Next stop 0 means we haven't even started the route yet
 				// Although, when it gets set to 1, shortly after it gets set to 2, so let's assume 0 means it's at the first (1) stop still
-				schedule_next = ReadMemory<int>(myTRVInst + offsets::trvinst_sch_next);
+				schedule_next = Read<int>(myTRVInst + Offsets::TRVInst_Sch_NextStop);
 				if (schedule_next == 0)
 				{
 					schedule_next = 1;
@@ -452,5 +452,5 @@ void discord::Update()
 
 	Discord_UpdatePresence(presence);
 
-	veh::RemoveHandler();
+	VEH::RemoveHandler();
 }
