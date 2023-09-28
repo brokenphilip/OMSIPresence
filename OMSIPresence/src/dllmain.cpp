@@ -171,6 +171,7 @@ void UpdateCheck()
 void __stdcall PluginStart(void* aOwner)
 {
 	Discord::presence = nullptr;
+	main_thread_id = GetCurrentThreadId();
 
 	debug = strstr(GetCommandLineA(), "-omsipresence_debug");
 	if (debug)

@@ -7,11 +7,12 @@
 
 /* === Main project stuff ===*/
 
-#define PROJECT_VERSION "1.0"
+#define PROJECT_VERSION "1.1"
 
 /* === Shared data === */
 
 inline HMODULE dll_instance;
+inline DWORD main_thread_id;
 
 inline bool debug = false;
 
