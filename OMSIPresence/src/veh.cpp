@@ -51,7 +51,7 @@ LONG CALLBACK VEH::ExceptionHandler(EXCEPTION_POINTERS* exception_pointers)
 
 	// Write minidump file
 	char dmp_filename[24];
-	sprintf_s(dmp_filename, 24, "OMSIPresence_%02d%02d%02d.dmp", time.wHour, time.wMinute, time.wSecond);
+	myprintf(dmp_filename, 24, "OMSIPresence_%02d%02d%02d.dmp", time.wHour, time.wMinute, time.wSecond);
 
 	HANDLE hProcess = GetCurrentProcess();
 	HANDLE hFile = CreateFile(dmp_filename, GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -67,7 +67,7 @@ LONG CALLBACK VEH::ExceptionHandler(EXCEPTION_POINTERS* exception_pointers)
 	{
 		if (GetModuleFileName((HMODULE)memory_info.AllocationBase, module_name, MAX_PATH))
 		{
-			sprintf_s(module_name, MAX_PATH, " in module %s", strrchr(module_name, '\\') + 1);
+			myprintf(module_name, MAX_PATH, " in module %s", strrchr(module_name, '\\') + 1);
 		}
 	}
 

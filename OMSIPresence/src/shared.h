@@ -9,6 +9,8 @@
 
 #define PROJECT_VERSION "1.1"
 
+#define myprintf(dest, size, fmt, ...) _snprintf_s(dest, size, size - 1, fmt, __VA_ARGS__)
+
 /* === Shared data === */
 
 inline HMODULE dll_instance;

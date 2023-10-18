@@ -80,13 +80,13 @@ void Discord::Update()
 				else
 				{
 					Log(LT_ERROR, "TMap.mapname was null");
-					sprintf_s(map, MAP_SIZE, "");
+					myprintf(map, MAP_SIZE, "");
 				}
 			}
 			else
 			{
 				Log(LT_ERROR, "TMap was null");
-				sprintf_s(map, MAP_SIZE, "");
+				myprintf(map, MAP_SIZE, "");
 			}
 		}
 
@@ -113,23 +113,23 @@ void Discord::Update()
 
 					if (manufacturer && model)
 					{
-						sprintf_s(vehicle, VEHICLE_SIZE, "%s %s", manufacturer, model);
+						myprintf(vehicle, VEHICLE_SIZE, "%s %s", manufacturer, model);
 					}
 					else
 					{
 						Log(LT_ERROR, "TRoadVehicle.hersteller and/or TRoadVehicle.friendlyname were null");
-						sprintf_s(vehicle, VEHICLE_SIZE, "");
+						myprintf(vehicle, VEHICLE_SIZE, "");
 					}
 				}
 				else
 				{
 					Log(LT_ERROR, "TRoadVehicleInst.TRVehicle was null");
-					sprintf_s(vehicle, VEHICLE_SIZE, "");
+					myprintf(vehicle, VEHICLE_SIZE, "");
 				}
 			}
 			else // We don't have a vehicle anymore
 			{
-				sprintf_s(vehicle, VEHICLE_SIZE, "");
+				myprintf(vehicle, VEHICLE_SIZE, "");
 			}
 		}
 
@@ -137,7 +137,7 @@ void Discord::Update()
 		bool paused = sysvars::pause || g::hard_paused1 || g::hard_paused2;
 
 		// Current line
-		#define LINE_SIZE 8
+		#define LINE_SIZE 16
 		static char line[LINE_SIZE] = {0};
 
 		// Index of the current line in our active schedule
@@ -155,11 +155,11 @@ void Discord::Update()
 		int schedule_delay = 0;
 
 		// Next bus stop
-		#define NEXT_STOP_SIZE 32
+		#define NEXT_STOP_SIZE 64
 		static char schedule_next_stop[NEXT_STOP_SIZE] = {0};
 
 		// Destination/terminus
-		#define TERMINUS_SIZE 32
+		#define TERMINUS_SIZE 64
 		static char terminus[TERMINUS_SIZE] = {0};
 
 		if (myTRVInst) // If we have a vehicle
@@ -167,11 +167,11 @@ void Discord::Update()
 			auto target = Read<char*>(myTRVInst + Offsets::TRVInst_Target);
 			if (target && strncmp(target, "$allexit$", 10))
 			{
-				sprintf_s(terminus, TERMINUS_SIZE, "%s", target);
+				myprintf(terminus, TERMINUS_SIZE, "%s", target);
 			}
 			else
 			{
-				sprintf_s(terminus, TERMINUS_SIZE, "");
+				myprintf(terminus, TERMINUS_SIZE, "");
 			}
 
 			schedule_valid = Read<uint8_t>(myTRVInst + Offsets::TRVInst_Sch_Info_Valid);
@@ -188,7 +188,7 @@ void Discord::Update()
 				{
 					// TODO: Might be ok? When does it happen?
 					Log(LT_WARN, "TRoadVehicleInst.AI_Scheduled_NextBusstopName was null");
-					sprintf_s(schedule_next_stop, NEXT_STOP_SIZE, "");
+					myprintf(schedule_next_stop, NEXT_STOP_SIZE, "");
 				}
 
 				// If the currently chosen line index has changed, get the new line
@@ -201,12 +201,12 @@ void Discord::Update()
 					char* line_name = TTimeTableMan_GetLineName(schedule_line);
 					if (line_name)
 					{
-						sprintf_s(line, LINE_SIZE, "%s", line_name);
+						myprintf(line, LINE_SIZE, "%s", line_name);
 					}
 					else
 					{
 						// Debug is printed in TTimeTableMan_GetLineName
-						sprintf_s(line, LINE_SIZE, "");
+						myprintf(line, LINE_SIZE, "");
 					}
 				}
 
@@ -225,13 +225,13 @@ void Discord::Update()
 			else // We don't have a schedule
 			{
 				schedule_line = -1;
-				sprintf_s(line, LINE_SIZE, "");
+				myprintf(line, LINE_SIZE, "");
 			}
 		}
 		else // We don't have a vehicle
 		{
 			schedule_line = -1;
-			sprintf_s(line, LINE_SIZE, "");
+			myprintf(line, LINE_SIZE, "");
 		}
 
 		/*
@@ -259,62 +259,62 @@ void Discord::Update()
 
 		if (strlen(map) > 0 && strlen(vehicle) > 0)
 		{
-			sprintf_s(details, DETAILS_SIZE, MAP_EMOJI " %s | " BUS_EMOJI " %s", map, vehicle);
+			myprintf(details, DETAILS_SIZE, MAP_EMOJI " %s | " BUS_EMOJI " %s", map, vehicle);
 		}
 		else if (strlen(map) > 0)
 		{
-			sprintf_s(details, DETAILS_SIZE, MAP_EMOJI " %s", map);
+			myprintf(details, DETAILS_SIZE, MAP_EMOJI " %s", map);
 		}
 		else if (strlen(vehicle) > 0)
 		{
-			sprintf_s(details, DETAILS_SIZE, BUS_EMOJI " %s", vehicle);
+			myprintf(details, DETAILS_SIZE, BUS_EMOJI " %s", vehicle);
 		}
 		else
 		{
-			sprintf_s(details, DETAILS_SIZE, "");
+			myprintf(details, DETAILS_SIZE, "");
 		}
 
 		if (myTRVInst) // We have a vehicle
 		{
 			if (paused && sysvars::ai)
 			{
-				sprintf_s(icon_text, ICONTEXT_SIZE, "Paused, watching AI drive");
+				myprintf(icon_text, ICONTEXT_SIZE, "Paused, watching AI drive");
 			}
 			else if (paused)
 			{
-				sprintf_s(icon_text, ICONTEXT_SIZE, "Paused, driving");
+				myprintf(icon_text, ICONTEXT_SIZE, "Paused, driving");
 			}
 			else if (sysvars::ai)
 			{
-				sprintf_s(icon_text, ICONTEXT_SIZE, "Watching AI drive");
+				myprintf(icon_text, ICONTEXT_SIZE, "Watching AI drive");
 			}
 			else
 			{
-				sprintf_s(icon_text, ICONTEXT_SIZE, "Driving");
+				myprintf(icon_text, ICONTEXT_SIZE, "Driving");
 			}
 
 			if (schedule_valid) // We have a schedule
 			{
 				if (schedule_next > 0 && schedule_count > 0)
 				{
-					sprintf_s(state, STATE_SIZE, BUSSTOP_EMOJI " %d/%d | ", schedule_next, schedule_count);
+					myprintf(state, STATE_SIZE, BUSSTOP_EMOJI " %d/%d | ", schedule_next, schedule_count);
 				}
 				else
 				{
-					sprintf_s(state, STATE_SIZE, "");
+					myprintf(state, STATE_SIZE, "");
 				}
 
 				if (strlen(line) > 0 && strlen(terminus) > 0)
 				{
-					sprintf_s(state, STATE_SIZE, "%s" LINE_EMOJI " %s => %s", state, line, terminus);
+					myprintf(state, STATE_SIZE, "%s" LINE_EMOJI " %s => %s", state, line, terminus);
 				}
 				else if (strlen(line) > 0)
 				{
-					sprintf_s(state, STATE_SIZE, "%s" LINE_EMOJI " %s", state, line);
+					myprintf(state, STATE_SIZE, "%s" LINE_EMOJI " %s", state, line);
 				}
 				else if (strlen(terminus) > 0)
 				{
-					sprintf_s(state, STATE_SIZE, "%s" LINE_EMOJI " %s", state, terminus);
+					myprintf(state, STATE_SIZE, "%s" LINE_EMOJI " %s", state, terminus);
 				}
 
 				#define DELAY_SIZE 16
@@ -322,83 +322,83 @@ void Discord::Update()
 
 				if (schedule_delay < 0)
 				{
-					sprintf_s(delay, DELAY_SIZE, "-%01d:%02d", -schedule_delay / 60, -schedule_delay % 60);
+					myprintf(delay, DELAY_SIZE, "-%01d:%02d", -schedule_delay / 60, -schedule_delay % 60);
 				}
 				else
 				{
-					sprintf_s(delay, DELAY_SIZE, "+%01d:%02d", schedule_delay / 60, schedule_delay % 60);
+					myprintf(delay, DELAY_SIZE, "+%01d:%02d", schedule_delay / 60, schedule_delay % 60);
 				}
 
 				if (schedule_delay >= 180) // We're late
 				{
 					if (paused)
 					{
-						sprintf_s(icon, ICON_SIZE, "p_late");
+						myprintf(icon, ICON_SIZE, "p_late");
 					}
 					else if (sysvars::ai)
 					{
-						sprintf_s(icon, ICON_SIZE, "ai_late");
+						myprintf(icon, ICON_SIZE, "ai_late");
 					}
 					else
 					{
-						sprintf_s(icon, ICON_SIZE, "late");
+						myprintf(icon, ICON_SIZE, "late");
 					}
 
 					if (strlen(schedule_next_stop) > 0)
 					{
-						sprintf_s(icon_text, ICONTEXT_SIZE, "%s late (%s, %s)", icon_text, schedule_next_stop, delay);
+						myprintf(icon_text, ICONTEXT_SIZE, "%s late (%s, %s)", icon_text, schedule_next_stop, delay);
 					}
 					else
 					{
-						sprintf_s(icon_text, ICONTEXT_SIZE, "%s late (%s)", icon_text, delay);
+						myprintf(icon_text, ICONTEXT_SIZE, "%s late (%s)", icon_text, delay);
 					}
 				}
 				else if (schedule_delay <= -120) // We're early
 				{
 					if (paused)
 					{
-						sprintf_s(icon, ICON_SIZE, "p_early");
+						myprintf(icon, ICON_SIZE, "p_early");
 					}
 					else if (sysvars::ai)
 					{
-						sprintf_s(icon, ICON_SIZE, "ai_early");
+						myprintf(icon, ICON_SIZE, "ai_early");
 					}
 					else
 					{
-						sprintf_s(icon, ICON_SIZE, "early");
+						myprintf(icon, ICON_SIZE, "early");
 					}
 
 					if (strlen(schedule_next_stop) > 0)
 					{
-						sprintf_s(icon_text, ICONTEXT_SIZE, "%s early (%s, %s)", icon_text, schedule_next_stop, delay);
+						myprintf(icon_text, ICONTEXT_SIZE, "%s early (%s, %s)", icon_text, schedule_next_stop, delay);
 					}
 					else
 					{
-						sprintf_s(icon_text, ICONTEXT_SIZE, "%s early (%s)", icon_text, delay);
+						myprintf(icon_text, ICONTEXT_SIZE, "%s early (%s)", icon_text, delay);
 					}
 				}
 				else // We're on time
 				{
 					if (paused)
 					{
-						sprintf_s(icon, ICON_SIZE, "p_ontime");
+						myprintf(icon, ICON_SIZE, "p_ontime");
 					}
 					else if (sysvars::ai)
 					{
-						sprintf_s(icon, ICON_SIZE, "ai_ontime");
+						myprintf(icon, ICON_SIZE, "ai_ontime");
 					}
 					else
 					{
-						sprintf_s(icon, ICON_SIZE, "ontime");
+						myprintf(icon, ICON_SIZE, "ontime");
 					}
 
 					if (strlen(schedule_next_stop) > 0)
 					{
-						sprintf_s(icon_text, ICONTEXT_SIZE, "%s on-time (%s, %s)", icon_text, schedule_next_stop, delay);
+						myprintf(icon_text, ICONTEXT_SIZE, "%s on-time (%s, %s)", icon_text, schedule_next_stop, delay);
 					}
 					else
 					{
-						sprintf_s(icon_text, ICONTEXT_SIZE, "%s on-time (%s)", icon_text, delay);
+						myprintf(icon_text, ICONTEXT_SIZE, "%s on-time (%s)", icon_text, delay);
 					}
 				}
 			}
@@ -406,48 +406,48 @@ void Discord::Update()
 			{
 				if (strlen(terminus) > 0)
 				{
-					sprintf_s(state, STATE_SIZE, LINE_EMOJI " %s", terminus);
+					myprintf(state, STATE_SIZE, LINE_EMOJI " %s", terminus);
 				}
 				else
 				{
-					sprintf_s(state, STATE_SIZE, "");
+					myprintf(state, STATE_SIZE, "");
 				}
 
 				if (paused)
 				{
-					sprintf_s(icon, ICON_SIZE, "paused");
+					myprintf(icon, ICON_SIZE, "paused");
 				}
 				else if (sysvars::ai)
 				{
-					sprintf_s(icon, ICON_SIZE, "ai");
+					myprintf(icon, ICON_SIZE, "ai");
 				}
 				else
 				{
-					sprintf_s(icon, ICON_SIZE, "driving");
+					myprintf(icon, ICON_SIZE, "driving");
 				}
 			}
 		}
 		else // No vehicle
 		{
-			sprintf_s(state, STATE_SIZE, "");
+			myprintf(state, STATE_SIZE, "");
 
 			if (paused)
 			{
-				sprintf_s(icon_text, ICONTEXT_SIZE, "Paused, freelooking");
-				sprintf_s(icon, ICON_SIZE, "paused");
+				myprintf(icon_text, ICONTEXT_SIZE, "Paused, freelooking");
+				myprintf(icon, ICON_SIZE, "paused");
 			}
 			else
 			{
-				sprintf_s(icon_text, ICONTEXT_SIZE, "Freelooking");
-				sprintf_s(icon, ICON_SIZE, "camera");
+				myprintf(icon_text, ICONTEXT_SIZE, "Freelooking");
+				myprintf(icon, ICON_SIZE, "camera");
 			}
 		}
 	}
 	else // Not in-game
 	{
-		sprintf_s(details, DETAILS_SIZE, "Getting ready to drive");
-		sprintf_s(icon_text, ICONTEXT_SIZE, "In the main menu");
-		sprintf_s(icon, ICON_SIZE, "menu");
+		myprintf(details, DETAILS_SIZE, "Getting ready to drive");
+		myprintf(icon_text, ICONTEXT_SIZE, "In the main menu");
+		myprintf(icon, ICON_SIZE, "menu");
 	}
 
 	Discord_UpdatePresence(presence);

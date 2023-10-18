@@ -20,9 +20,14 @@ An OMSI 2 Bus Simulator plugin which integrates Discord Rich Presence into the g
 3. Extract the contents of the zip archive to the `plugins` folder inside your OMSI 2 installation folder
    - If the folder does not exist, create it
 4. Upon launching the game, Rich Presence status should show on your Discord profile
+   - Make sure to disable all other Rich Presences for OMSI 2, if any
 
 ### Troubleshooting
-If you encounter any issues during installation or usage, please refer to the [issue tracker](https://github.com/brokenphilip/OMSIPresence/issues?q=). If you haven't found your issue, feel free to create a new one; ideally submitting your game version, your log file and a crash dump if any, as well as a general idea of what you were doing around the time of the issue (ie. spawning a bus, changing maps, freelooking etc...).
+If you encounter any issues during installation or usage, please refer to the [issue tracker](https://github.com/brokenphilip/OMSIPresence/issues?q=). If you haven't found your issue, feel free to create a new one; ideally submitting your OMSI 2 version (and OMSIPresence version, although I'd encourage only reporting issues regarding the latest version), your log file and a crash dump if any, as well as a general idea of what you were doing around the time of the issue (ie. spawning a bus, changing maps, freelooking etc...).
+
+Please make sure your crash dumps and log file match the date and time of the incident, by comparing when the files have been last modified. Crash dumps can be found in these locations:
+- Your OMSI 2 installation folder - as `OMSIPresence_XXXXXX.dmp`
+- `%USERPROFILE%\AppData\Local\CrashDumps` - as `Omsi.exe.XXXXX.dmp`
 
 If you have any further questions about the project, or if (understandably) using the issue tracker is too confusing, feel free to add me on Discord (`brokenphilip`) and I will try to get back to you as soon as possible. :)
 

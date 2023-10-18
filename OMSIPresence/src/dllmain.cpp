@@ -107,7 +107,7 @@ void UpdateCheck()
 	/*
 	// HACK: Append current unix time as an unused query string to avoid caching
 	char url[128] = { 0 };
-	sprintf_s(url, 128, "https://api.github.com/repos/brokenphilip/OMSIPresence/tags?%lld", time(NULL));
+	myprintf(url, 128, "https://api.github.com/repos/brokenphilip/OMSIPresence/tags?%lld", time(NULL));
 	*/
 
 	// Attempt to connect
@@ -151,7 +151,7 @@ void UpdateCheck()
 			if (strncmp(token, PROJECT_VERSION, ((len > len2) ? len : len2)))
 			{
 				char msg[256];
-				sprintf_s(msg, 256, "An update to OMSIPresence is available!\n\nYour version: " PROJECT_VERSION "\nLatest version: %s\n\n"
+				myprintf(msg, 256, "An update to OMSIPresence is available!\n\nYour version: " PROJECT_VERSION "\nLatest version: %s\n\n"
 					"Would you like to go to the OMSIPresence page now?", token);
 
 				if (MessageBoxA(NULL, msg, "OMSIPresence " PROJECT_VERSION, MB_ICONINFORMATION | MB_YESNO) == IDYES)
@@ -279,12 +279,12 @@ void Log(LogType log_t, const char* message, ...)
 		switch (log_t)
 		{
 			case LT_FATAL:
-			case LT_ERROR: sprintf_s(tag, 15, "\x1B[91mERROR\x1B[0m"); break;
+			case LT_ERROR: myprintf(tag, 15, "\x1B[91mERROR\x1B[0m"); break;
 
-			case LT_WARN: sprintf_s(tag, 15, "\x1B[93m WARN\x1B[0m"); break;
+			case LT_WARN: myprintf(tag, 15, "\x1B[93m WARN\x1B[0m"); break;
 
 			/* LT_PRINT, LT_INFO */
-			default: sprintf_s(tag, 15, "\x1B[97m INFO\x1B[0m"); break;
+			default: myprintf(tag, 15, "\x1B[97m INFO\x1B[0m"); break;
 		}
 
 		SYSTEMTIME time;
