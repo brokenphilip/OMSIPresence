@@ -21,18 +21,6 @@ BOOL APIENTRY DllMain(HMODULE instance, DWORD, LPVOID)
 	return TRUE;
 }
 
-bool VersionCheck()
-{
-	if (!strncmp(reinterpret_cast<char*>(Offsets::version_check_address), Offsets::version_check_string, Offsets::version_check_length))
-	{
-		Log(LT_INFO, "Detected version " OMSI_VERSION);
-		return true;
-	}
-
-	Error("This version of OMSIPresence does not support this version of OMSI 2.");
-	return false;
-}
-
 bool OplCheck()
 {
 	// OMSIPresence.opl in this project is linked to OMSIPresence.rc and its resource will be used for the consistency check
@@ -177,7 +165,11 @@ void __stdcall PluginStart(void* aOwner)
 	if (debug)
 	{
 		FILE* console;
-		AllocConsole();
+		if (!AllocConsole())
+		{
+			Log(LT_WARN, "OMSITextureManager has detected that there is already a console allocated for this program. "
+				"Please note that this may disrupt console logging output - consider disabling other plugins which use the console.");
+		}
 		SetConsoleTitle("OMSIPresence " PROJECT_VERSION " - Debug");
 
 		freopen_s(&console, "CONIN$", "r", stdin);
@@ -191,10 +183,9 @@ void __stdcall PluginStart(void* aOwner)
 		SetConsoleMode(handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN);
 	}
 
-	Log(LT_INFO, "Plugin has started (%sversion " PROJECT_VERSION ")", (debug? "in DEBUG mode, " : ""));
-
-	if (!VersionCheck())
+	if (!Offsets::v2_3_004::Check() && !Offsets::v2_2_032::Check())
 	{
+		Error("OMSIPresence " PROJECT_VERSION " does not support this version of OMSI 2.");
 		Log(LT_WARN, "Version check failed. OMSIPresence will remain dormant");
 		return;
 	}
@@ -204,6 +195,8 @@ void __stdcall PluginStart(void* aOwner)
 		Log(LT_WARN, "OPL consistency check failed. OMSIPresence will remain dormant");
 		return;
 	}
+
+	Log(LT_INFO, "Plugin has started (%sversion " PROJECT_VERSION ")", (debug ? "in DEBUG mode, " : ""));
 
 	if (strstr(GetCommandLineA(), "-omsipresence_noupdate"))
 	{
@@ -292,15 +285,17 @@ void Log(LogType log_t, const char* message, ...)
 		printf("[%02d:%02d:%02d %s] %s\n", time.wHour, time.wMinute, time.wSecond, tag, buffer);
 	}
 
-	int a = 2;
-
-	wchar_t* log = UnicodeString(L"[OMSIPresence] %hs", buffer).string;
-
-	__asm
+	// Only write to logfile.txt if we know AddLogEntry is supported
+	if (g::version_supported)
 	{
-		mov     eax, log
-		mov     dl, log_t
-		call    Offsets::AddLogEntry
+		wchar_t* log = UnicodeString(L"[OMSIPresence] %hs", buffer).string;
+
+		__asm
+		{
+			mov     eax, log
+			mov     dl, log_t
+			call    Offsets::AddLogEntry
+		}
 	}
 }
 
@@ -310,8 +305,6 @@ void Error(const char* message, ...)
 	va_list va;
 	va_start(va, message);
 	vsprintf_s(buffer, 1024, message, va);
-
-	//Log(LT_ERROR, "MBox: %s", buffer);
 
 	MessageBoxA(NULL, buffer, "OMSIPresence " PROJECT_VERSION, MB_ICONERROR);
 }
