@@ -137,7 +137,7 @@ void Discord::Update()
 		bool paused = sysvars::pause || g::hard_paused1 || g::hard_paused2;
 
 		// Current line
-		#define LINE_SIZE 16
+		#define LINE_SIZE 32
 		static char line[LINE_SIZE] = {0};
 
 		// Index of the current line in our active schedule
@@ -164,6 +164,7 @@ void Discord::Update()
 
 		if (myTRVInst) // If we have a vehicle
 		{
+			// If we have a target (terminus) and it isn't set to $allexit$ (special OMSI terminus which tells all passengers to exit the bus, eg. "Out of Order")
 			auto target = Read<char*>(myTRVInst + Offsets::TRVInst_Target);
 			if (target && strncmp(target, "$allexit$", 10))
 			{
