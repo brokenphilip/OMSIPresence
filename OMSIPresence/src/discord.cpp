@@ -236,19 +236,24 @@ void Discord::Update()
 		}
 
 		/*
+			PEAK LENGTH INFO AS OF 26-JAN-24 - IF CHANGED, UPDATE ACCORDINGLY!!!
+
 			PART 2: Format the data to Rich Presence and send it off
 
 			For the details, we display the current map and/or bus name, whatever is available to us.
 			If we're in the main menu, we display that we're getting ready to drive.
+			- Peak length: 14 (static + \0) + 32 (map) + 64 (vehicle) = 110, out of 128
 
 			For the state, we display the current line and terminus.
 			We can only have a terminus if we have a vehicle. We can only have a line if we have (a vehicle and) a schedule.
 			If we don't have a vehicle to begin with, we display nothing.
+			- Peak length: 19 (static + \0) + 32 (line) + 64 (terminus) + 2x (x = length of bus stop count) = 115 + 2x (Xmax = 6, so 999999 bus stops), out of 128
 
 			For the icon text, we display what the user is currently doing using text - if they're driving, paused, watching AI drive, in freecam or in the main menu.
 			If we have a schedule, for the first three aformentioned actions, we additionally display whether they're late, early or on-time.
 			We also additionally display the next bus stop as well as the exact delay formatted in +/-MM:SS, where +/- indicates whether we're late/early.
 			If the delay is between -2 minutes and +3 minutes, we are on-time.
+			- Peak length: 25 ("Paused, watching AI drive") + 14 (" on-time (, )\0") + 64 (next stop) + 16 (delay) = 119, out of 128
 
 			For the icon, we display what the user is currently doing using an icon and a background color.
 			When we're in the main menu, a menu icon will show. When we're freelooking, a camera icon will show. When we're freeroaming, a bus icon will show.
@@ -256,6 +261,7 @@ void Discord::Update()
 			If we're letting AI control our vehicle, an AI icon will show. For all 5 of the aformentioned icons, the "default" yellow background will be used.
 			When we have multiple states at once, pausing has the highest priority, followed by AI, then everything else.
 			When we have a schedule, instead of yellow, we use red (indicating we're late), blue (indicating we're early) and green (indicating we're on time).
+			- Peak length: 10 ("ai_ontime\0"), out of 16
 		*/
 
 		if (strlen(map) > 0 && strlen(vehicle) > 0)
