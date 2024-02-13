@@ -32,8 +32,7 @@ LONG CALLBACK VEH::ExceptionHandler(EXCEPTION_POINTERS* exception_pointers)
 	DWORD thread_id = GetCurrentThreadId();
 	if (thread_id != main_thread_id)
 	{
-		// TODO: remove this warning for the next release version
-		Log(LT_WARN, "VEH called from thread %lu when main thread is %lu", thread_id, main_thread_id);
+		//Log(LT_WARN, "VEH called from thread %lu when main thread is %lu", thread_id, main_thread_id);
 		return EXCEPTION_CONTINUE_SEARCH;
 	}
 

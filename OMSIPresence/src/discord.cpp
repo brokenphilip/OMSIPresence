@@ -187,7 +187,7 @@ void Discord::Update()
 				}
 				else
 				{
-					// TODO: Might be ok? When does it happen?
+					// Seems to happen when the bus stop is in an unloaded tile. TODO: Can we replace this with act_busstop instead?
 					Log(LT_WARN, "TRoadVehicleInst.AI_Scheduled_NextBusstopName was null");
 					myprintf(schedule_next_stop, NEXT_STOP_SIZE, "");
 				}
