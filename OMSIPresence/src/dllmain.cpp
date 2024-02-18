@@ -404,6 +404,7 @@ int TTimeTableMan_GetBusstopCount(int line, int tour, int tour_entry)
 		return -1;
 	}
 
+	// TODO: anything above this not even necessary?
 	auto trip = Read<uintptr_t>(entries_for_tour + tour_entry * 0x18 + 0x4);
 	auto trips = Read<uintptr_t>(tttman + Offsets::TTTMan_Trips);
 	if (!BoundCheck(trips, trip))
