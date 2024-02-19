@@ -17,19 +17,19 @@ extern "C" __declspec(dllexport) void __stdcall PluginFinalize();
 
 BOOL APIENTRY DllMain(HMODULE instance, DWORD, LPVOID)
 {
-	dll_instance = instance;
+	g::dll_instance = instance;
 	return TRUE;
 }
 
 bool OplCheck()
 {
 	// OMSIPresence.opl in this project is linked to OMSIPresence.rc and its resource will be used for the consistency check
-	HRSRC resource = FindResource(dll_instance, MAKEINTRESOURCE(IDR_OPL1), "OPL");
-	HGLOBAL global = LoadResource(dll_instance, resource);
+	HRSRC resource = FindResource(g::dll_instance, MAKEINTRESOURCE(IDR_OPL1), "OPL");
+	HGLOBAL global = LoadResource(g::dll_instance, resource);
 	LPVOID pointer = LockResource(global);
 
 	char* opl = reinterpret_cast<char*>(pointer);
-	int length = SizeofResource(dll_instance, resource);
+	int length = SizeofResource(g::dll_instance, resource);
 
 	FILE* file = nullptr;
 	fopen_s(&file, "plugins/OMSIPresence.opl", "rb");
@@ -159,10 +159,10 @@ void UpdateCheck()
 void __stdcall PluginStart(void* aOwner)
 {
 	Discord::presence = nullptr;
-	main_thread_id = GetCurrentThreadId();
+	g::main_thread_id = GetCurrentThreadId();
 
-	debug = strstr(GetCommandLineA(), "-omsipresence_debug");
-	if (debug)
+	g::debug = strstr(GetCommandLineA(), "-omsipresence_debug");
+	if (g::debug)
 	{
 		FILE* console;
 		if (!AllocConsole())
@@ -183,12 +183,14 @@ void __stdcall PluginStart(void* aOwner)
 		SetConsoleMode(handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN);
 	}
 
-	if (!Offsets::v2_3_004::Check() && !Offsets::v2_2_032::Check())
+	g::version = Offsets::CheckVersion();
+	if (!g::version)
 	{
 		Error("OMSIPresence " PROJECT_VERSION " does not support this version of OMSI 2.");
 		Log(LT_WARN, "Version check failed. OMSIPresence will remain dormant");
 		return;
 	}
+	Log(LT_INFO, "Detected version %s", g::version);
 
 	if (!OplCheck())
 	{
@@ -196,7 +198,7 @@ void __stdcall PluginStart(void* aOwner)
 		return;
 	}
 
-	Log(LT_INFO, "Plugin has started (%sversion " PROJECT_VERSION ")", (debug ? "in DEBUG mode, " : ""));
+	Log(LT_INFO, "Plugin has started (%sversion " PROJECT_VERSION ")", (g::debug ? "in DEBUG mode, " : ""));
 
 	if (strstr(GetCommandLineA(), "-omsipresence_noupdate"))
 	{
@@ -266,7 +268,7 @@ void Log(LogType log_t, const char* message, ...)
 	va_start(va, message);
 	vsprintf_s(buffer, 1024, message, va);
 
-	if (debug)
+	if (g::debug)
 	{
 		char tag[15] = { 0 };
 		switch (log_t)
@@ -286,7 +288,7 @@ void Log(LogType log_t, const char* message, ...)
 	}
 
 	// Only write to logfile.txt if we know AddLogEntry is supported
-	if (g::version_supported)
+	if (g::version)
 	{
 		wchar_t* log = UnicodeString(L"[OMSIPresence] %hs", buffer).string;
 
@@ -365,9 +367,8 @@ __declspec(naked) uintptr_t TRVList_GetMyVehicle()
 	}
 }
 
-char* TTimeTableMan_GetLineName(int line)
+char* TTimeTableMan_GetLineName(uintptr_t tttman, int line)
 {
-	auto tttman = Read<uintptr_t>(Offsets::TTTMan);
 	auto lines = Read<uintptr_t>(tttman + Offsets::TTTMan_Lines);
 
 	if (!BoundCheck(lines, line))
@@ -380,39 +381,30 @@ char* TTimeTableMan_GetLineName(int line)
 	return Read<char*>(lines + line * 0x10);
 }
 
-int TTimeTableMan_GetBusstopCount(int line, int tour, int tour_entry)
+void TTimeTableMan_GetTripInfo(uintptr_t tttman, int trip, int busstop_index, const wchar_t** busstop_name, int* busstop_count)
 {
-	auto tttman = Read<uintptr_t>(Offsets::TTTMan);
-	auto lines = Read<uintptr_t>(tttman + Offsets::TTTMan_Lines);
-	if (!BoundCheck(lines, line))
-	{
-		Log(LT_ERROR, "GetBusstopCount: Line %d is out of bounds (less than 0 or greater than %d)", line, ListLength(lines));
-		return -1;
-	}
-
-	auto tours_for_line = Read<uintptr_t>(lines + line * 0x10 + 0x8);
-	if (!BoundCheck(tours_for_line, tour))
-	{
-		Log(LT_ERROR, "GetBusstopCount: Tour %d is out of bounds (less than 0 or greater than %d)", tour, ListLength(tours_for_line));
-		return -1;
-	}
-
-	auto entries_for_tour = Read<uintptr_t>(tours_for_line + tour * 0x30 + 0x2C);
-	if (!BoundCheck(entries_for_tour, tour_entry))
-	{
-		Log(LT_ERROR, "GetBusstopCount: TourEntry %d is out of bounds (less than 0 or greater than %d)", tour_entry, ListLength(entries_for_tour));
-		return -1;
-	}
-
-	// TODO: anything above this not even necessary?
-	auto trip = Read<uintptr_t>(entries_for_tour + tour_entry * 0x18 + 0x4);
 	auto trips = Read<uintptr_t>(tttman + Offsets::TTTMan_Trips);
 	if (!BoundCheck(trips, trip))
 	{
-		Log(LT_ERROR, "GetBusstopCount: Trip %d is out of bounds (less than 0 or greater than %d)", trip, ListLength(trips));
-		return -1;
+		Log(LT_ERROR, "GetTripInfo: Trip %d is out of bounds (less than 0 or greater than %d)", trip, ListLength(trips));
+		return;
 	}
 
-	auto stations_for_trip = Read<uintptr_t>(trips + trip * 0x28 + 0x18);
-	return ListLength(stations_for_trip) - 1;
+	// Taken from TRoadVehicleInst_ScriptCallback, case 10 (GetTTBusstopCount macro)
+	auto busstops_for_trip = Read<uintptr_t>(trips + trip * 0x28 + 0x18);
+	if (busstop_count)
+	{
+		*busstop_count = ListLength(busstops_for_trip) - 1;
+	}
+
+	// Taken from TProgMan.Render ("next Stop:" in Shift+Y overlay)
+	if (!BoundCheck(busstops_for_trip, busstop_index))
+	{
+		Log(LT_ERROR, "GetTripInfo: Trip %d is out of bounds (less than 0 or greater than %d)", trip, ListLength(busstops_for_trip));
+		return;
+	}
+	if (busstop_name)
+	{
+		*busstop_name = Read<const wchar_t*>(busstops_for_trip + (busstop_index << 6));
+	}
 }

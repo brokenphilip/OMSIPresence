@@ -30,7 +30,7 @@ LONG CALLBACK VEH::ExceptionHandler(EXCEPTION_POINTERS* exception_pointers)
 	// Since this is a Vectored Exception Handler (VEH) and not a Structured Exception Handler (SEH), because we need our exception handler to have priority
 	// We must check for exceptions coming from other (non-main) threads and reject them
 	DWORD thread_id = GetCurrentThreadId();
-	if (thread_id != main_thread_id)
+	if (thread_id != g::main_thread_id)
 	{
 		//Log(LT_WARN, "VEH called from thread %lu when main thread is %lu", thread_id, main_thread_id);
 		return EXCEPTION_CONTINUE_SEARCH;
@@ -72,7 +72,7 @@ LONG CALLBACK VEH::ExceptionHandler(EXCEPTION_POINTERS* exception_pointers)
 
 	DWORD code = exception_pointers->ExceptionRecord->ExceptionCode;
 
-	if (debug)
+	if (g::debug)
 	{
 		Log(LT_ERROR, "Exception %08X at %08X%s. Saved to %s", code, address, module_name, dmp_filename);
 	}

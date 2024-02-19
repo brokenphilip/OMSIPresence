@@ -14,15 +14,19 @@
 
 /* === Shared data === */
 
-inline HMODULE dll_instance;
-inline DWORD main_thread_id;
-
-inline bool debug = false;
-
 namespace g
 {
-	// Have we passed the version check?
-	inline bool version_supported = false;
+	// Handle to this dll, used for the OPL resource
+	inline HMODULE dll_instance;
+
+	// ID of the main thread, used for exception handling
+	inline DWORD main_thread_id;
+
+	// Is debug mode (launch option) enabled?
+	inline bool debug = false;
+
+	// Current version name
+	inline const char* version = nullptr;
 
 	// Have we already loaded a map at some point?
 	inline bool first_load = false;
@@ -88,9 +92,8 @@ void OnTimer();
 
 uintptr_t TRVList_GetMyVehicle();
 
-char* TTimeTableMan_GetLineName(int index);
-
-int TTimeTableMan_GetBusstopCount(int line, int tour, int tour_entry);
+char* TTimeTableMan_GetLineName(uintptr_t tttman, int index);
+void TTimeTableMan_GetTripInfo(uintptr_t tttman, int trip, int busstop_index, const wchar_t** busstop_name, int* busstop_count);
 
 /* === Offsets === */
 
@@ -133,12 +136,6 @@ namespace Offsets
 	// Offset from TRoadVehicleInst, AI_Scheduled_Line
 	constexpr uintptr_t TRVInst_Sch_line = 0x660;
 
-	// Offset from TRoadVehicleInst, AI_Scheduled_Tour
-	constexpr uintptr_t TRVInst_Sch_Tour = 0x664;
-
-	// Offset from TRoadVehicleInst, AI_Scheduled_TourEntry
-	constexpr uintptr_t TRVInst_Sch_tourentry = 0x668;
-
 	// Offset from TRoadVehicleInst, AI_Scheduled_Trip
 	constexpr uintptr_t TRVInst_Sch_Trip = 0x66C;
 
@@ -179,52 +176,35 @@ namespace Offsets
 	constexpr const char* const str = ":3";
 	constexpr int len = std::char_traits<char>::length(str);
 
-	namespace v2_3_004
+	inline const char* CheckVersion()
 	{
-		inline bool Check()
+		if (!strncmp(reinterpret_cast<char*>(0x7C9780), str, len))
 		{
-			if (!strncmp(reinterpret_cast<char*>(0x7C9780), str, len))
-			{
-				hard_paused1 = 0x861694;
-				hard_paused2 = 0x861BCD;
-				TMap = 0x861588;
-				TTTMan = 0x8614E8;
-				TRVList = 0x861508;
-				TRVList_GetMyVehicle = 0x74A43C;
-				AddLogEntry = 0x8022C0;
-	
-				g::version_supported = true;
-				Log(LT_INFO, "Detected version 2.3.004 - Latest Steam version");
+			hard_paused1 = 0x861694;
+			hard_paused2 = 0x861BCD;
+			TMap = 0x861588;
+			TTTMan = 0x8614E8;
+			TRVList = 0x861508;
+			TRVList_GetMyVehicle = 0x74A43C;
+			AddLogEntry = 0x8022C0;
 
-				return true;
-			}
-
-			return false;
+			return "2.3.004 - Latest Steam version";
 		}
-	}
 
-	namespace v2_2_032
-	{
-		inline bool Check()
+		if (!strncmp(reinterpret_cast<char*>(0x7C9668), str, len))
 		{
-			if (!strncmp(reinterpret_cast<char*>(0x7C9668), str, len))
-			{
-				hard_paused1 = 0x861690;
-				hard_paused2 = 0x861BC9;
-				TMap = 0x861584;
-				TTTMan = 0x8614E4;
-				TRVList = 0x861504;
-				TRVList_GetMyVehicle = 0x74A338;
-				AddLogEntry = 0x801FD4;
+			hard_paused1 = 0x861690;
+			hard_paused2 = 0x861BC9;
+			TMap = 0x861584;
+			TTTMan = 0x8614E4;
+			TRVList = 0x861504;
+			TRVList_GetMyVehicle = 0x74A338;
+			AddLogEntry = 0x801FD4;
 
-				g::version_supported = true;
-				Log(LT_INFO, "Detected version 2.2.032 - Tram patch");
-
-				return true;
-			}
-
-			return false;
+			return "2.2.032 - Tram patch";
 		}
+
+		return nullptr;
 	}
 }
 #undef NO_OF

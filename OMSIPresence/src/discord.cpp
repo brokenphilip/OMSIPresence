@@ -71,11 +71,11 @@ void Discord::Update()
 			myTMap = myTMap_new;
 			if (myTMap)
 			{
-				auto mapname = Read<wchar_t*>(myTMap + Offsets::TMap_friendlyname);
+				auto map_wide = Read<wchar_t*>(myTMap + Offsets::TMap_friendlyname);
 
-				if (mapname)
+				if (map_wide)
 				{
-					WideCharToMultiByte(CP_UTF8, 0, mapname, MAP_SIZE, map, MAP_SIZE, NULL, NULL);
+					WideCharToMultiByte(CP_UTF8, 0, map_wide, MAP_SIZE, map, MAP_SIZE, NULL, NULL);
 				}
 				else
 				{
@@ -143,20 +143,21 @@ void Discord::Update()
 		// Index of the current line in our active schedule
 		static int schedule_line = -1;
 
-		int schedule_tour = -1;
-		int schedule_tourentry = -1;
+		// How many bus stops are there on this trip?
 		int schedule_count = -1;
-		static int schedule_trip = -1;
 
+		// Index of the next bus stop
 		int schedule_next = -1;
 
-		// Is timetable valid & next bus stop delay
+		// Is timetable valid
 		bool schedule_valid = false;
+
+		// Our delay to the next bus stop
 		int schedule_delay = 0;
 
-		// Next bus stop
-		#define NEXT_STOP_SIZE 64
-		static char schedule_next_stop[NEXT_STOP_SIZE] = {0};
+		// Next bus stop name
+		#define NEXT_NAME_SIZE 64
+		static char schedule_next_name[NEXT_NAME_SIZE] = {0};
 
 		// Destination/terminus
 		#define TERMINUS_SIZE 64
@@ -179,18 +180,19 @@ void Discord::Update()
 			if (schedule_valid)
 			{
 				schedule_delay = Read<int>(myTRVInst + Offsets::TRVInst_Sch_Delay);
+				schedule_next = Read<int>(myTRVInst + Offsets::TRVInst_Sch_NextStop);
+				const wchar_t* schedule_next_name_wide = nullptr;
 
-				auto next_stop = Read<wchar_t*>(myTRVInst + Offsets::TRVInst_Sch_NextStopName);
-				if (next_stop)
+				auto tttman = Read<uintptr_t>(Offsets::TTTMan);
+				TTimeTableMan_GetTripInfo(tttman, Read<int>(myTRVInst + Offsets::TRVInst_Sch_Trip), schedule_next, &schedule_next_name_wide, &schedule_count);
+				if (schedule_next_name_wide)
 				{
-					WideCharToMultiByte(CP_UTF8, 0, next_stop, NEXT_STOP_SIZE, schedule_next_stop, NEXT_STOP_SIZE, NULL, NULL);
+					WideCharToMultiByte(CP_UTF8, 0, schedule_next_name_wide, NEXT_NAME_SIZE, schedule_next_name, NEXT_NAME_SIZE, NULL, NULL);
 				}
 				else
 				{
-					// Seems to happen when the bus stop is in an unloaded tile. 
-					// TODO: Can we replace this with act_busstop instead? or, better yet, do what TProgMan.Render does and get the info through the TTMan instead
-					Log(LT_WARN, "TRoadVehicleInst.AI_Scheduled_NextBusstopName was null");
-					myprintf(schedule_next_stop, NEXT_STOP_SIZE, "");
+					Log(LT_ERROR, "TTimeTableMan_GetTripInfo returned null for the next bus stop name");
+					myprintf(schedule_next_name, NEXT_NAME_SIZE, "");
 				}
 
 				// If the currently chosen line index has changed, get the new line
@@ -200,7 +202,7 @@ void Discord::Update()
 					Log(LT_INFO, "Found new line: %d -> %d", schedule_line, schedule_line_new);
 					schedule_line = schedule_line_new;
 
-					char* line_name = TTimeTableMan_GetLineName(schedule_line);
+					char* line_name = TTimeTableMan_GetLineName(tttman, schedule_line);
 					if (line_name)
 					{
 						myprintf(line, LINE_SIZE, "%s", line_name);
@@ -211,20 +213,8 @@ void Discord::Update()
 						myprintf(line, LINE_SIZE, "");
 					}
 				}
-
-				schedule_tour = Read<int>(myTRVInst + Offsets::TRVInst_Sch_Tour);
-				schedule_tourentry = Read<int>(myTRVInst + Offsets::TRVInst_Sch_tourentry);
-				schedule_count = TTimeTableMan_GetBusstopCount(schedule_line, schedule_tour, schedule_tourentry);
-
-				// Next stop 0 means we haven't even started the route yet
-				// Although, when it gets set to 1, shortly after it gets set to 2, so let's assume 0 means it's at the first (1) stop still
-				schedule_next = Read<int>(myTRVInst + Offsets::TRVInst_Sch_NextStop);
-				if (schedule_next == 0)
-				{
-					schedule_next = 1;
-				}
 			}
-			else // We don't have a schedule
+			else // We don't have a (valid) schedule
 			{
 				schedule_line = -1;
 				myprintf(line, LINE_SIZE, "");
@@ -303,6 +293,13 @@ void Discord::Update()
 
 			if (schedule_valid) // We have a schedule
 			{
+				// Next stop 0 means we haven't even started the route yet, although, when it gets set to 1, shortly after it gets set to 2
+				// So let's assume, for status display purposes, 0 means it's at the first (1) stop still
+				if (schedule_next == 0)
+				{
+					schedule_next = 1;
+				}
+
 				if (schedule_next > 0 && schedule_count > 0)
 				{
 					myprintf(state, STATE_SIZE, BUSSTOP_EMOJI " %d/%d | ", schedule_next, schedule_count);
@@ -352,9 +349,9 @@ void Discord::Update()
 						myprintf(icon, ICON_SIZE, "late");
 					}
 
-					if (strlen(schedule_next_stop) > 0)
+					if (strlen(schedule_next_name) > 0)
 					{
-						myprintf(icon_text, ICONTEXT_SIZE, "%s late (%s, %s)", icon_text, schedule_next_stop, delay);
+						myprintf(icon_text, ICONTEXT_SIZE, "%s late (%s, %s)", icon_text, schedule_next_name, delay);
 					}
 					else
 					{
@@ -376,9 +373,9 @@ void Discord::Update()
 						myprintf(icon, ICON_SIZE, "early");
 					}
 
-					if (strlen(schedule_next_stop) > 0)
+					if (strlen(schedule_next_name) > 0)
 					{
-						myprintf(icon_text, ICONTEXT_SIZE, "%s early (%s, %s)", icon_text, schedule_next_stop, delay);
+						myprintf(icon_text, ICONTEXT_SIZE, "%s early (%s, %s)", icon_text, schedule_next_name, delay);
 					}
 					else
 					{
@@ -400,9 +397,9 @@ void Discord::Update()
 						myprintf(icon, ICON_SIZE, "ontime");
 					}
 
-					if (strlen(schedule_next_stop) > 0)
+					if (strlen(schedule_next_name) > 0)
 					{
-						myprintf(icon_text, ICONTEXT_SIZE, "%s on-time (%s, %s)", icon_text, schedule_next_stop, delay);
+						myprintf(icon_text, ICONTEXT_SIZE, "%s on-time (%s, %s)", icon_text, schedule_next_name, delay);
 					}
 					else
 					{
