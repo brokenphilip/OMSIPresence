@@ -46,9 +46,9 @@ namespace sysvars
 
 struct UnicodeString
 {
-	uint16_t codepage;
-	uint16_t unk_1;
-	uint32_t unk_2;
+	uint16_t code_page;
+	uint16_t element_size;
+	uint32_t reference_count;
 	uint32_t length;
 	wchar_t string[1024];
 
@@ -58,9 +58,9 @@ struct UnicodeString
 		va_start(va, message);
 		vswprintf_s(string, 1024, message, va);
 
-		codepage = 0x04B0;
-		unk_1 = 0x0002;
-		unk_2 = 0xFFFFFFFF;
+		code_page = 0x04B0;
+		element_size = 0x0002;
+		reference_count = 0xFFFFFFFF;
 		length = std::char_traits<wchar_t>::length(string);
 	}
 };

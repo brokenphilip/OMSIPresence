@@ -336,11 +336,9 @@ __declspec(naked) void OnTimer()
 		// Skip if we don't have Rich Presence
 		mov     eax, Discord::presence
 		test    eax, eax
-		jg      not_null
-		ret
+		jz      no_rp
 
 		// Get hard_paused1 & hard_paused2 and update
-	not_null:
 		mov     eax, Offsets::hard_paused1
 		mov     al, [eax]
 		mov     g::hard_paused1, al
@@ -350,6 +348,7 @@ __declspec(naked) void OnTimer()
 		mov     g::hard_paused2, al
 		
 		call    Discord::Update
+	no_rp:
 		ret
 	}
 }
@@ -400,7 +399,7 @@ void TTimeTableMan_GetTripInfo(uintptr_t tttman, int trip, int busstop_index, co
 	// Taken from TProgMan.Render ("next Stop:" in Shift+Y overlay)
 	if (!BoundCheck(busstops_for_trip, busstop_index))
 	{
-		Log(LT_ERROR, "GetTripInfo: Trip %d is out of bounds (less than 0 or greater than %d)", trip, ListLength(busstops_for_trip));
+		Log(LT_ERROR, "GetTripInfo: Bus stop %d is out of bounds (less than 0 or greater than %d)", trip, ListLength(busstops_for_trip));
 		return;
 	}
 	if (busstop_name)
