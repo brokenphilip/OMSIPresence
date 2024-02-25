@@ -44,23 +44,24 @@ namespace sysvars
 
 /* === Utility === */
 
+template <size_t size>
 struct UnicodeString
 {
 	uint16_t code_page;
 	uint16_t element_size;
 	uint32_t reference_count;
 	uint32_t length;
-	wchar_t string[1024];
+	wchar_t string[size];
 
 	UnicodeString(const wchar_t* message, ...)
 	{
 		va_list va;
 		va_start(va, message);
-		vswprintf_s(string, 1024, message, va);
+		vswprintf_s(string, size, message, va);
 
-		code_page = 0x04B0;
-		element_size = 0x0002;
-		reference_count = 0xFFFFFFFF;
+		code_page = CP_WINUNICODE;
+		element_size = 2;
+		reference_count = -1;
 		length = std::char_traits<wchar_t>::length(string);
 	}
 };

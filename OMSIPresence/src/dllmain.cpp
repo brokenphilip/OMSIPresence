@@ -290,7 +290,7 @@ void Log(LogType log_t, const char* message, ...)
 	// Only write to logfile.txt if we know AddLogEntry is supported
 	if (g::version)
 	{
-		wchar_t* log = UnicodeString(L"[OMSIPresence] %hs", buffer).string;
+		wchar_t* log = UnicodeString<1024>(L"[OMSIPresence] %hs", buffer).string;
 
 		__asm
 		{
