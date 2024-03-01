@@ -59,7 +59,7 @@ struct UnicodeString
 		va_start(va, message);
 		vswprintf_s(string, size, message, va);
 
-		code_page = CP_WINUNICODE;
+		code_page = 1200; // CP_WINUNICODE
 		element_size = 2;
 		reference_count = -1;
 		length = std::char_traits<wchar_t>::length(string);
