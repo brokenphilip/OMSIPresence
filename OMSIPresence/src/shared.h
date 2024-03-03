@@ -8,7 +8,7 @@
 /* === Main project stuff ===*/
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! MAKE SURE TO UPDATE THE VERSION RESOURCE AS WELL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#define PROJECT_VERSION "1.2"
+#define PROJECT_VERSION "1.3"
 
 #define myprintf(dest, size, fmt, ...) _snprintf_s(dest, size, size - 1, fmt, __VA_ARGS__)
 
