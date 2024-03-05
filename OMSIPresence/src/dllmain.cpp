@@ -399,7 +399,7 @@ void TTimeTableMan_GetTripInfo(uintptr_t tttman, int trip, int busstop_index, co
 	// Taken from TProgMan.Render ("next Stop:" in Shift+Y overlay)
 	if (!BoundCheck(busstops_for_trip, busstop_index))
 	{
-		Log(LT_ERROR, "GetTripInfo: Bus stop %d is out of bounds (less than 0 or greater than %d)", trip, ListLength(busstops_for_trip));
+		Log(LT_ERROR, "GetTripInfo: Bus stop %d is out of bounds (less than 0 or greater than %d)", busstop_index, ListLength(busstops_for_trip));
 		return;
 	}
 	if (busstop_name)
