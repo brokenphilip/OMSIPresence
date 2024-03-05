@@ -372,7 +372,7 @@ char* TTimeTableMan_GetLineName(uintptr_t tttman, int line)
 
 	if (!BoundCheck(lines, line))
 	{
-		Log(LT_ERROR, "GetLineName: %d is out of bounds (less than 0 or greater than %d)", line, ListLength(lines));
+		Log(LT_ERROR, "GetLineName: Line %d is out of bounds (Size: %d)", line, ListLength(lines));
 		return nullptr;
 	}
 
@@ -385,7 +385,7 @@ void TTimeTableMan_GetTripInfo(uintptr_t tttman, int trip, int busstop_index, co
 	auto trips = Read<uintptr_t>(tttman + Offsets::TTTMan_Trips);
 	if (!BoundCheck(trips, trip))
 	{
-		Log(LT_ERROR, "GetTripInfo: Trip %d is out of bounds (less than 0 or greater than %d)", trip, ListLength(trips));
+		Log(LT_ERROR, "GetTripInfo: Trip %d is out of bounds (Size: %d)", trip, ListLength(trips));
 		return;
 	}
 
@@ -396,14 +396,14 @@ void TTimeTableMan_GetTripInfo(uintptr_t tttman, int trip, int busstop_index, co
 		*busstop_count = ListLength(busstops_for_trip) - 1;
 	}
 
-	// Taken from TProgMan.Render ("next Stop:" in Shift+Y overlay)
 	if (!BoundCheck(busstops_for_trip, busstop_index))
 	{
-		Log(LT_ERROR, "GetTripInfo: Bus stop %d is out of bounds (less than 0 or greater than %d)", busstop_index, ListLength(busstops_for_trip));
+		Log(LT_ERROR, "GetTripInfo: Bus stop %d is out of bounds (Size: %d)", busstop_index, ListLength(busstops_for_trip));
 		return;
 	}
 	if (busstop_name)
 	{
+		// Taken from TProgMan.Render ("next Stop:" in Shift+Y overlay)
 		*busstop_name = Read<const wchar_t*>(busstops_for_trip + (busstop_index << 6));
 	}
 }
