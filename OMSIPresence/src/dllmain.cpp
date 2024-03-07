@@ -398,6 +398,7 @@ void TTimeTableMan_GetTripInfo(uintptr_t tttman, int trip, int busstop_index, co
 
 	if (!BoundCheck(busstops_for_trip, busstop_index))
 	{
+		// TODO: watching AI drive out of bounds causes this. should we care?
 		Log(LT_ERROR, "GetTripInfo: Bus stop %d is out of bounds (Size: %d)", busstop_index, ListLength(busstops_for_trip));
 		return;
 	}
