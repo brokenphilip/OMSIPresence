@@ -174,7 +174,7 @@ namespace Offsets
 	inline uintptr_t AddLogEntry = NO_OF(6);
 
 	// String that will be used in the version check. Length is automatically calculated at compile time
-	constexpr const char* const str = ":3";
+	constexpr const char* str = ":3";
 	constexpr int len = std::char_traits<char>::length(str);
 
 	inline const char* CheckVersion()
