@@ -142,7 +142,7 @@ void UpdateCheck()
 				myprintf(msg, 256, "An update to OMSIPresence is available!\n\nYour version: " PROJECT_VERSION "\nLatest version: %s\n\n"
 					"Would you like to go to the OMSIPresence page now?", token);
 
-				if (MessageBoxA(NULL, msg, "OMSIPresence " PROJECT_VERSION, MB_ICONINFORMATION | MB_YESNO) == IDYES)
+				if (MessageBoxA(NULL, msg, "OMSIPresence " PROJECT_VERSION, MB_ICONINFORMATION | MB_YESNO | MB_SYSTEMMODAL) == IDYES)
 				{
 					ShellExecuteA(NULL, NULL, "https://github.com/brokenphilip/OMSIPresence", NULL, NULL, SW_SHOW);
 				}
@@ -308,7 +308,7 @@ void Error(const char* message, ...)
 	va_start(va, message);
 	vsprintf_s(buffer, 1024, message, va);
 
-	MessageBoxA(NULL, buffer, "OMSIPresence " PROJECT_VERSION, MB_ICONERROR);
+	MessageBoxA(NULL, buffer, "OMSIPresence " PROJECT_VERSION, MB_ICONERROR | MB_SYSTEMMODAL);
 }
 
 inline int ListLength(uintptr_t list)
