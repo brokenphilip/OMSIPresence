@@ -4,9 +4,6 @@ An OMSI 2 Bus Simulator plugin which integrates Discord Rich Presence into the g
 ![media](https://github.com/brokenphilip/OMSIPresence/assets/13336890/5ebe1267-df5e-4a44-bd7c-b3727dbeabc8)
 
 # Usage
-> [!NOTE]
-> **This is not a finished product.** While stable enough for a public release, the plugin is still in development and further testing is required. It is highly recommended to regularly check for updates (the plugin already does it for you automatically) and use the latest version whenever possible. Please don't hesitate to give suggestions or report any bugs that might occur!
-
 ### Requirements
 You must be running one of the following versions of OMSI 2 (you can check which version you have in your `logfile.txt`):
 - `2.3.004` - Latest Steam version
