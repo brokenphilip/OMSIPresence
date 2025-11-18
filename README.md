@@ -52,7 +52,9 @@ Additionally, the small icons (provided by [Font Awesome](https://fontawesome.co
 
 Pause icons have priority over AI icons - that is, if the game is paused and the vehicle is controlled by AI, pause icons are shown. Additionally, hovering over the small icon displays a short explanation of these icons, as well as the current bus stop and timetable delay, if any.
 
-Information that was previously shown in OMSI2Drpc, such as the current bus speed, fuel, passenger count, weather etc... is deemed mostly irrelevant and only serves to clutter the already limited space of Discord Rich Presence, thus it was removed.
+Information that was previously shown in OMSI2Drpc, such as the current vehicle speed, fuel, passenger count, weather etc... is deemed mostly irrelevant and only serves to clutter the already limited space of Discord Rich Presence, thus it was removed.
+
+Additionally, Discord Rich Presence information updates (on-demand) at a fixed interval of 15 seconds, which cannot be reduced. This means that, even if we were to supply Discord Rich Presence with new information more frequently, it will still take 15 seconds for it to update and reach end-users. Thus, volatile information, including (but not limited to) vehicle speed and distance to the next stop, would quickly become outdated, defeating the purpose of Rich Presence.
 
 Apart from the features listed above, the project has seen major improvements since its initial release as OMSI2Drpc:
 - The plugin uses the `TTimer` [Delphi class](https://docwiki.embarcadero.com/Libraries/Alexandria/en/Vcl.ExtCtrls.TTimer) to update Rich Presence (alongside `Access*Variable` functions, but no longer solely relying on them)
