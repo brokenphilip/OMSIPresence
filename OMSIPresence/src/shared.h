@@ -8,9 +8,10 @@
 /* === Main project stuff ===*/
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! MAKE SURE TO UPDATE THE VERSION RESOURCE AS WELL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#define PROJECT_VERSION "1.3"
+#define PROJECT_VERSION "1.4"
 
 #define myprintf(dest, size, fmt, ...) _snprintf_s(dest, size, size - 1, fmt, __VA_ARGS__)
+#define mystrcpy(dest, src, count) strncpy_s(dest, count, src, count - 1)
 
 /* === Shared data === */
 
@@ -34,6 +35,9 @@ namespace g
 	// Is the game paused (by ESC or simulation-pausing dialogs)?
 	inline bool hard_paused1 = false;
 	inline bool hard_paused2 = false;
+
+	// Is Discord Rich Presence running?
+	inline bool discord = false;
 }
 
 namespace sysvars
@@ -93,8 +97,10 @@ void OnTimer();
 
 uintptr_t TRVList_GetMyVehicle();
 
+char* TRVInst_GetTargetFromHof(uintptr_t vehicle, int target_index);
+
 char* TTimeTableMan_GetLineName(uintptr_t tttman, int index);
-void TTimeTableMan_GetTripInfo(uintptr_t tttman, int trip, int busstop_index, const wchar_t** busstop_name, int* busstop_count);
+void TTimeTableMan_GetTripInfo(uintptr_t tttman, int trip, int busstop_index, const char** target_name, const wchar_t** busstop_name, int* busstop_count);
 
 /* === Offsets === */
 
@@ -140,6 +146,9 @@ namespace Offsets
 	// Offset from TRoadVehicleInst, AI_Scheduled_Trip
 	constexpr uintptr_t TRVInst_Sch_Trip = 0x66C;
 
+	// Offset from TRoadVehicleInst, AI_Scheduled_Target_index
+	constexpr uintptr_t TRVInst_Sch_Target_Index = 0x674;
+
 	// Offset from TRoadVehicleInst, AI_Scheduled_NextBusstop
 	constexpr uintptr_t TRVInst_Sch_NextStop = 0x680;
 
@@ -152,14 +161,23 @@ namespace Offsets
 	// Offset from TRoadVehicleInst, RoadVehicle (pointer to its TRoadVehicle)
 	constexpr uintptr_t TRVInst_TRV = 0x710;
 
+	// Offset from TRoadVehicleInst, target_index_int
+	constexpr uintptr_t TRVInst_Target_Index = 0x7B8;
+
 	// Offset from TRoadVehicleInst, target_int_string
 	constexpr uintptr_t TRVInst_Target = 0x7BC;
+
+	// Offset from TRoadVehicleInst, myhof (index of the currently selected hof)
+	constexpr uintptr_t TRVInst_myhof = 0x7C8;
 
 	// Offset from TRoadVehicle, friendlyname
 	constexpr uintptr_t TRV_friendlyname = 0x19C;
 
 	// Offset from TRoadVehicle, hersteller (manufacturer)
 	constexpr uintptr_t TRV_hersteller = 0x5D8;
+
+	// Offset from TRoadVehicle, hoefe (list of THofs)
+	constexpr uintptr_t TRV_hoefe = 0x5E4;
 
 	// Location of TTimer's VTable
 	constexpr uintptr_t TTimer_vtable = 0x4F98C4;

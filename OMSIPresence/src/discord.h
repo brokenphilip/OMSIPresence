@@ -24,13 +24,13 @@ namespace Discord
 	//constexpr float update_interval = UPDATE_INTERVAL / 1000;
 
 	// First row of text under the game name (128 bytes max)
-	inline char* details;
 	#define DETAILS_SIZE 128
-
+	inline char details[DETAILS_SIZE] { 0 };
+	
 	// Second row of text under the game name (128 bytes max)
-	inline char* state;
 	#define STATE_SIZE 128
-
+	inline char state[STATE_SIZE] { 0 };
+	
 	// Small icon (16 bytes max). Possible values are:
 	// - menu: just started omsi
 	// - camera: "freelook", not in vehicle
@@ -41,20 +41,25 @@ namespace Discord
 	// - paused, p_early, p_late, p_ontime: paused, same as last 4 above
 	// - ai, ai_early, ai_late, ai_ontime: in ai controlled vehicle, same as above
 	// NOTE: Pause icons have priority over ai icons
-	inline char* icon;
 	#define ICON_SIZE 16
+	inline char icon[ICON_SIZE] { 0 };
 
 	// Text which appears when you hover over the small icon (128 bytes max)
-	inline char* icon_text;
 	#define ICONTEXT_SIZE 128
-
+	inline char icon_text[ICONTEXT_SIZE] { 0 };
+	
 	// Text which appears when you hover over the main large icon (128 bytes max)
-	inline char* credits;
 	#define CREDITS_SIZE 128
+	inline char credits[CREDITS_SIZE] { 0 };
 
-	inline DiscordRichPresence* presence;
+	inline DiscordRichPresence presence { 0 };
 
 	void Setup();
 	void Destroy();
+
+	void UpdateMap(uintptr_t map, char* map_name, size_t size);
+	void UpdateVehicle(uintptr_t vehicle, char* vehicle_name, size_t size);
+	void UpdateLine(uintptr_t tttman, int line, char* line_name, size_t size);
+
 	void Update();
 }

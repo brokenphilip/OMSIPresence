@@ -5,25 +5,17 @@
 
 void Discord::Setup()
 {
-	details = new char[DETAILS_SIZE] {0};
-	state = new char[STATE_SIZE] {0};
-	icon = new char[ICON_SIZE] {0};
-	icon_text = new char[ICONTEXT_SIZE] {0};
-	credits = new char[CREDITS_SIZE] {0};
+	presence.state = state;
+	presence.details = details;
+	presence.startTimestamp = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	presence.endTimestamp = NULL;
+	presence.largeImageKey = "icon";
+	presence.largeImageText = "OMSIPresence " PROJECT_VERSION;
+	presence.smallImageKey = icon;
+	presence.smallImageText = icon_text;
+	presence.instance = 1;
 
-	presence = new DiscordRichPresence();
-	presence->state = state;
-	presence->details = details;
-	presence->startTimestamp = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-	presence->endTimestamp = NULL;
-	presence->largeImageKey = "icon";
-	presence->largeImageText = "OMSIPresence " PROJECT_VERSION;
-	presence->smallImageKey = icon;
-	presence->smallImageText = icon_text;
-	presence->instance = 1;
-
-	DiscordEventHandlers handlers;
-	memset(&handlers, 0, sizeof(handlers));
+	DiscordEventHandlers handlers { 0 };
 	Discord_Initialize("783688666823524353", &handlers, 1, NULL);
 }
 
@@ -32,13 +24,81 @@ void Discord::Destroy()
 	Discord_ClearPresence();
 	Discord_Shutdown();
 
-	delete presence;
+	presence = { 0 };
 
-	delete[] details;
-	delete[] state;
-	delete[] icon;
-	delete[] icon_text;
-	delete[] credits;
+	details[0] = '\0';
+	state[0] = '\0';
+	icon[0] = '\0';
+	icon_text[0] = '\0';
+	credits[0] = '\0';
+}
+
+void Discord::UpdateMap(uintptr_t map, char* map_name, size_t size)
+{
+	if (map)
+	{
+		auto map_wide = Read<wchar_t*>(map + Offsets::TMap_friendlyname);
+		if (map_wide)
+		{
+			WideCharToMultiByte(CP_UTF8, 0, map_wide, size, map_name, size, NULL, NULL);
+		}
+		else
+		{
+			Log(LT_ERROR, "TMap.mapname was null");
+			map_name[0] = '\0';
+		}
+	}
+	else
+	{
+		Log(LT_ERROR, "TMap was null");
+		map_name[0] = '\0';
+	}
+}
+
+void Discord::UpdateVehicle(uintptr_t vehicle, char* vehicle_name, size_t size)
+{
+	if (vehicle)
+	{
+		auto myTRVehicle = Read<uintptr_t>(vehicle + Offsets::TRVInst_TRV);
+		if (myTRVehicle)
+		{
+			auto manufacturer = Read<char*>(myTRVehicle + Offsets::TRV_hersteller);
+			auto model = Read<char*>(myTRVehicle + Offsets::TRV_friendlyname);
+
+			if (manufacturer && model)
+			{
+				myprintf(vehicle_name, size, "%s %s", manufacturer, model);
+			}
+			else
+			{
+				Log(LT_ERROR, "TRoadVehicle.hersteller and/or TRoadVehicle.friendlyname were null");
+				vehicle_name[0] = '\0';
+			}
+		}
+		else
+		{
+			Log(LT_ERROR, "TRoadVehicleInst.TRVehicle was null");
+			vehicle_name[0] = '\0';
+		}
+	}
+	else // We don't have a vehicle anymore
+	{
+		vehicle_name[0] = '\0';
+	}
+}
+
+void Discord::UpdateLine(uintptr_t tttman, int line, char* line_name, size_t size)
+{
+	char* ttt_line_name = TTimeTableMan_GetLineName(tttman, line);
+	if (ttt_line_name)
+	{
+		mystrcpy(line_name, ttt_line_name, size);
+	}
+	else
+	{
+		// Debug is printed in TTimeTableMan_GetLineName
+		line_name[0] = '\0';
+	}
 }
 
 void Discord::Update()
@@ -56,9 +116,12 @@ void Discord::Update()
 			Icon & text: if we're in-game, have a vehicle, paused, watching AI drive, have a schedule (if we do, are we late or early or on-time)
 		*/
 
+		// Is the game paused?
+		bool paused = sysvars::pause || g::hard_paused1 || g::hard_paused2;
+
 		// Map name
 		#define MAP_SIZE 32
-		static char map[MAP_SIZE] = {0};
+		static char map[MAP_SIZE] { 0 };
 
 		// Pointer to the currently loaded TMap
 		static uintptr_t myTMap = 0;
@@ -69,30 +132,18 @@ void Discord::Update()
 		{
 			Log(LT_INFO, "Found new TMap: %08X -> %08X", myTMap, myTMap_new);
 			myTMap = myTMap_new;
-			if (myTMap)
-			{
-				auto map_wide = Read<wchar_t*>(myTMap + Offsets::TMap_friendlyname);
-
-				if (map_wide)
-				{
-					WideCharToMultiByte(CP_UTF8, 0, map_wide, MAP_SIZE, map, MAP_SIZE, NULL, NULL);
-				}
-				else
-				{
-					Log(LT_ERROR, "TMap.mapname was null");
-					myprintf(map, MAP_SIZE, "");
-				}
-			}
-			else
-			{
-				Log(LT_ERROR, "TMap was null");
-				myprintf(map, MAP_SIZE, "");
-			}
+			Discord::UpdateMap(myTMap, map, MAP_SIZE);
+		}
+		else if (paused && myTMap)
+		{
+			// If we're paused, we can afford to preemptively update the map name
+			// This fixes an edge case where different maps can have the same address, thus their name would not properly update
+			Discord::UpdateMap(myTMap, map, MAP_SIZE);
 		}
 
 		// Vehicle name
 		#define VEHICLE_SIZE 64
-		static char vehicle[VEHICLE_SIZE] = {0};
+		static char vehicle[VEHICLE_SIZE] { 0 };
 
 		// Pointer to our currently driven TRoadVehicleInst
 		static uintptr_t myTRVInst = 0;
@@ -103,42 +154,18 @@ void Discord::Update()
 		{
 			Log(LT_INFO, "Found new TRVInst: %08X -> %08X", myTRVInst, myTRVInst_new);
 			myTRVInst = myTRVInst_new;
-			if (myTRVInst)
-			{
-				auto myTRVehicle = Read<uintptr_t>(myTRVInst + Offsets::TRVInst_TRV);
-				if (myTRVehicle)
-				{
-					auto manufacturer = Read<char*>(myTRVehicle + Offsets::TRV_hersteller);
-					auto model = Read<char*>(myTRVehicle + Offsets::TRV_friendlyname);
-
-					if (manufacturer && model)
-					{
-						myprintf(vehicle, VEHICLE_SIZE, "%s %s", manufacturer, model);
-					}
-					else
-					{
-						Log(LT_ERROR, "TRoadVehicle.hersteller and/or TRoadVehicle.friendlyname were null");
-						myprintf(vehicle, VEHICLE_SIZE, "");
-					}
-				}
-				else
-				{
-					Log(LT_ERROR, "TRoadVehicleInst.TRVehicle was null");
-					myprintf(vehicle, VEHICLE_SIZE, "");
-				}
-			}
-			else // We don't have a vehicle anymore
-			{
-				myprintf(vehicle, VEHICLE_SIZE, "");
-			}
+			Discord::UpdateVehicle(myTRVInst, vehicle, VEHICLE_SIZE);
 		}
-
-		// Is the game paused?
-		bool paused = sysvars::pause || g::hard_paused1 || g::hard_paused2;
+		else if (paused)
+		{
+			// If we're paused, we can afford to preemptively update the vehicle name
+			// This fixes an edge case where different vehicles can have the same address, thus their name would not properly update
+			Discord::UpdateVehicle(myTRVInst, vehicle, VEHICLE_SIZE);
+		}
 
 		// Current line
 		#define LINE_SIZE 32
-		static char line[LINE_SIZE] = {0};
+		static char line[LINE_SIZE] { 0 };
 
 		// Index of the current line in our active schedule
 		static int schedule_line = -1;
@@ -157,11 +184,11 @@ void Discord::Update()
 
 		// Next bus stop name
 		#define NEXT_NAME_SIZE 64
-		static char schedule_next_name[NEXT_NAME_SIZE] = {0};
+		char schedule_next_name[NEXT_NAME_SIZE] { 0 };
 
 		// Destination/terminus
 		#define TERMINUS_SIZE 64
-		static char terminus[TERMINUS_SIZE] = {0};
+		char terminus[TERMINUS_SIZE] { 0 };
 
 		if (myTRVInst) // If we have a vehicle
 		{
@@ -169,11 +196,16 @@ void Discord::Update()
 			auto target = Read<char*>(myTRVInst + Offsets::TRVInst_Target);
 			if (target && strncmp(target, "$allexit$", 10))
 			{
-				myprintf(terminus, TERMINUS_SIZE, "%s", target);
+				mystrcpy(terminus, target, TERMINUS_SIZE);
 			}
 			else
 			{
-				myprintf(terminus, TERMINUS_SIZE, "");
+				// In case of $allexit$, try to fetch target (terminus) from the HOF (if it was empty instead of $allexit$, this won't do anything, hence why we don't care for it)
+				target = TRVInst_GetTargetFromHof(myTRVInst, Read<int>(myTRVInst + Offsets::TRVInst_Target_Index));
+				if (target)
+				{
+					mystrcpy(terminus, target, TERMINUS_SIZE);
+				}
 			}
 
 			schedule_valid = Read<uint8_t>(myTRVInst + Offsets::TRVInst_Sch_Info_Valid);
@@ -182,9 +214,10 @@ void Discord::Update()
 				schedule_delay = Read<int>(myTRVInst + Offsets::TRVInst_Sch_Delay);
 				schedule_next = Read<int>(myTRVInst + Offsets::TRVInst_Sch_NextStop);
 				const wchar_t* schedule_next_name_wide = nullptr;
+				const char* schedule_target = nullptr;
 
 				auto tttman = Read<uintptr_t>(Offsets::TTTMan);
-				TTimeTableMan_GetTripInfo(tttman, Read<int>(myTRVInst + Offsets::TRVInst_Sch_Trip), schedule_next, &schedule_next_name_wide, &schedule_count);
+				TTimeTableMan_GetTripInfo(tttman, Read<int>(myTRVInst + Offsets::TRVInst_Sch_Trip), schedule_next, &schedule_target, &schedule_next_name_wide, &schedule_count);
 				if (schedule_next_name_wide)
 				{
 					WideCharToMultiByte(CP_UTF8, 0, schedule_next_name_wide, NEXT_NAME_SIZE, schedule_next_name, NEXT_NAME_SIZE, NULL, NULL);
@@ -192,7 +225,19 @@ void Discord::Update()
 				else
 				{
 					Log(LT_ERROR, "TTimeTableMan_GetTripInfo returned null for the next bus stop name");
-					myprintf(schedule_next_name, NEXT_NAME_SIZE, "");
+				}
+
+				// If we still don't have a target (terminus) somehow, fall back to the timetable target
+				if (strlen(terminus) == 0)
+				{
+					if (schedule_target)
+					{
+						mystrcpy(terminus, schedule_target, TERMINUS_SIZE);
+					}
+					else
+					{
+						Log(LT_ERROR, "TTimeTableMan_GetTripInfo returned null for the target name");
+					}
 				}
 
 				// If the currently chosen line index has changed, get the new line
@@ -201,29 +246,33 @@ void Discord::Update()
 				{
 					Log(LT_INFO, "Found new line: %d -> %d", schedule_line, schedule_line_new);
 					schedule_line = schedule_line_new;
-
-					char* line_name = TTimeTableMan_GetLineName(tttman, schedule_line);
-					if (line_name)
-					{
-						myprintf(line, LINE_SIZE, "%s", line_name);
-					}
-					else
-					{
-						// Debug is printed in TTimeTableMan_GetLineName
-						myprintf(line, LINE_SIZE, "");
-					}
+					Discord::UpdateLine(tttman, schedule_line, line, LINE_SIZE);
+				}
+				else if (paused)
+				{
+					// If we're paused, we can afford to preemptively update the line name
+					// This fixes an edge case where different lines can have the same index, thus their name would not properly update
+					Discord::UpdateLine(tttman, schedule_line, line, LINE_SIZE);
 				}
 			}
 			else // We don't have a (valid) schedule
 			{
-				schedule_line = -1;
-				myprintf(line, LINE_SIZE, "");
+				if (schedule_line != -1)
+				{
+					Log(LT_INFO, "Found new line: %d -> -1", schedule_line);
+					schedule_line = -1;
+				}
+				line[0] = '\0';
 			}
 		}
 		else // We don't have a vehicle
 		{
-			schedule_line = -1;
-			myprintf(line, LINE_SIZE, "");
+			if (schedule_line != -1)
+			{
+				Log(LT_INFO, "Found new line: %d -> -1", schedule_line);
+				schedule_line = -1;
+			}
+			line[0] = '\0';
 		}
 
 		/*
@@ -269,61 +318,73 @@ void Discord::Update()
 		}
 		else
 		{
-			myprintf(details, DETAILS_SIZE, "");
+			details[0] = '\0';
 		}
 
 		if (myTRVInst) // We have a vehicle
 		{
+			char icon_text_1[ICONTEXT_SIZE] { 0 };
+			char icon_text_2[ICONTEXT_SIZE] { 0 };
+
+			// First, handle the left part of the icon state (the second part is handled by the timetable delay)
 			if (paused && sysvars::ai)
 			{
-				myprintf(icon_text, ICONTEXT_SIZE, "Paused, watching AI drive");
+				mystrcpy(icon_text_1, "Paused, watching AI drive", ICONTEXT_SIZE);
 			}
 			else if (paused)
 			{
-				myprintf(icon_text, ICONTEXT_SIZE, "Paused, driving");
+				mystrcpy(icon_text_1, "Paused, driving", ICONTEXT_SIZE);
 			}
 			else if (sysvars::ai)
 			{
-				myprintf(icon_text, ICONTEXT_SIZE, "Watching AI drive");
+				mystrcpy(icon_text_1, "Watching AI drive", ICONTEXT_SIZE);
 			}
 			else
 			{
-				myprintf(icon_text, ICONTEXT_SIZE, "Driving");
+				mystrcpy(icon_text_1, "Driving", ICONTEXT_SIZE);
 			}
 
 			if (schedule_valid) // We have a schedule
 			{
-				// Next stop 0 means we haven't even started the route yet, although, when it gets set to 1, shortly after it gets set to 2
-				// So let's assume, for status display purposes, 0 means it's at the first (1) stop still
-				if (schedule_next == 0)
+				char state_1[STATE_SIZE] { 0 };
+				char state_2[STATE_SIZE] { 0 };
+
+				// Left part of the state
+				if (schedule_next >= 0 && schedule_count > 0)
 				{
-					schedule_next = 1;
+					myprintf(state_1, STATE_SIZE, BUSSTOP_EMOJI " %d/%d", schedule_next + 1, schedule_count + 1);
 				}
 
-				if (schedule_next > 0 && schedule_count > 0)
-				{
-					myprintf(state, STATE_SIZE, BUSSTOP_EMOJI " %d/%d | ", schedule_next, schedule_count);
-				}
-				else
-				{
-					myprintf(state, STATE_SIZE, "");
-				}
-
+				// Right part of the state - only show the line (if there is one) if it's accompanied by a terminus, otherwise don't show anything
 				if (strlen(line) > 0 && strlen(terminus) > 0)
 				{
-					myprintf(state, STATE_SIZE, "%s" LINE_EMOJI " %s => %s", state, line, terminus);
-				}
-				else if (strlen(line) > 0)
-				{
-					myprintf(state, STATE_SIZE, "%s" LINE_EMOJI " %s", state, line);
+					myprintf(state_2, STATE_SIZE, LINE_EMOJI " %s => %s", line, terminus);
 				}
 				else if (strlen(terminus) > 0)
 				{
-					myprintf(state, STATE_SIZE, "%s" LINE_EMOJI " %s", state, terminus);
+					myprintf(state_2, STATE_SIZE, LINE_EMOJI " %s", terminus);
+				}
+
+				// Combine the left and right parts of the state
+				if (strlen(state_1) > 0 && strlen(state_2) > 0)
+				{
+					myprintf(state, STATE_SIZE, "%s | %s", state_1, state_2);
+				}
+				else if (strlen(state_1) > 0)
+				{
+					mystrcpy(state, state_1, STATE_SIZE);
+				}
+				else if (strlen(state_2) > 0)
+				{
+					mystrcpy(state, state_2, STATE_SIZE);
+				}
+				else
+				{
+					state[0] = '\0';
 				}
 
 				#define DELAY_SIZE 16
-				static char* delay = new char[DELAY_SIZE] {0};
+				char delay[DELAY_SIZE] { 0 };
 
 				if (schedule_delay < 0)
 				{
@@ -338,72 +399,72 @@ void Discord::Update()
 				{
 					if (paused)
 					{
-						myprintf(icon, ICON_SIZE, "p_late");
+						mystrcpy(icon, "p_late", ICON_SIZE);
 					}
 					else if (sysvars::ai)
 					{
-						myprintf(icon, ICON_SIZE, "ai_late");
+						mystrcpy(icon, "ai_late", ICON_SIZE);
 					}
 					else
 					{
-						myprintf(icon, ICON_SIZE, "late");
+						mystrcpy(icon, "late", ICON_SIZE);
 					}
 
 					if (strlen(schedule_next_name) > 0)
 					{
-						myprintf(icon_text, ICONTEXT_SIZE, "%s late (%s, %s)", icon_text, schedule_next_name, delay);
+						myprintf(icon_text_2, ICONTEXT_SIZE, "late (%s, %s)", schedule_next_name, delay);
 					}
 					else
 					{
-						myprintf(icon_text, ICONTEXT_SIZE, "%s late (%s)", icon_text, delay);
+						myprintf(icon_text_2, ICONTEXT_SIZE, "late (%s)", delay);
 					}
 				}
 				else if (schedule_delay <= -120) // We're early
 				{
 					if (paused)
 					{
-						myprintf(icon, ICON_SIZE, "p_early");
+						mystrcpy(icon, "p_early", ICON_SIZE);
 					}
 					else if (sysvars::ai)
 					{
-						myprintf(icon, ICON_SIZE, "ai_early");
+						mystrcpy(icon, "ai_early", ICON_SIZE);
 					}
 					else
 					{
-						myprintf(icon, ICON_SIZE, "early");
+						mystrcpy(icon, "early", ICON_SIZE);
 					}
 
 					if (strlen(schedule_next_name) > 0)
 					{
-						myprintf(icon_text, ICONTEXT_SIZE, "%s early (%s, %s)", icon_text, schedule_next_name, delay);
+						myprintf(icon_text_2, ICONTEXT_SIZE, "early (%s, %s)", schedule_next_name, delay);
 					}
 					else
 					{
-						myprintf(icon_text, ICONTEXT_SIZE, "%s early (%s)", icon_text, delay);
+						myprintf(icon_text_2, ICONTEXT_SIZE, "early (%s)", delay);
 					}
 				}
 				else // We're on time
 				{
 					if (paused)
 					{
-						myprintf(icon, ICON_SIZE, "p_ontime");
+						mystrcpy(icon, "p_ontime", ICON_SIZE);
 					}
 					else if (sysvars::ai)
 					{
-						myprintf(icon, ICON_SIZE, "ai_ontime");
+						mystrcpy(icon, "ai_ontime", ICON_SIZE);
 					}
 					else
 					{
-						myprintf(icon, ICON_SIZE, "ontime");
+						mystrcpy(icon, "ontime", ICON_SIZE);
 					}
 
 					if (strlen(schedule_next_name) > 0)
 					{
-						myprintf(icon_text, ICONTEXT_SIZE, "%s on-time (%s, %s)", icon_text, schedule_next_name, delay);
+						myprintf(icon_text_2, ICONTEXT_SIZE, "on-time (%s, %s)", schedule_next_name, delay);
 					}
 					else
 					{
-						myprintf(icon_text, ICONTEXT_SIZE, "%s on-time (%s)", icon_text, delay);
+						myprintf(icon_text_2, ICONTEXT_SIZE, "on-time (%s)", delay);
 					}
 				}
 			}
@@ -415,47 +476,56 @@ void Discord::Update()
 				}
 				else
 				{
-					myprintf(state, STATE_SIZE, "");
+					state[0] = '\0';
 				}
 
 				if (paused)
 				{
-					myprintf(icon, ICON_SIZE, "paused");
+					mystrcpy(icon, "paused", ICON_SIZE);
 				}
 				else if (sysvars::ai)
 				{
-					myprintf(icon, ICON_SIZE, "ai");
+					mystrcpy(icon, "ai", ICON_SIZE);
 				}
 				else
 				{
-					myprintf(icon, ICON_SIZE, "driving");
+					mystrcpy(icon, "driving", ICON_SIZE);
 				}
+			}
+
+			// Assemble our icon text from the left and right parts
+			if (strlen(icon_text_2) > 0)
+			{
+				myprintf(icon_text, ICONTEXT_SIZE, "%s %s", icon_text_1, icon_text_2);
+			}
+			else
+			{
+				mystrcpy(icon_text, icon_text_1, ICONTEXT_SIZE);
 			}
 		}
 		else // No vehicle
 		{
-			myprintf(state, STATE_SIZE, "");
+			state[0] = '\0';
 
 			if (paused)
 			{
-				myprintf(icon_text, ICONTEXT_SIZE, "Paused, freelooking");
-				myprintf(icon, ICON_SIZE, "paused");
+				mystrcpy(icon_text, "Paused, freelooking", ICONTEXT_SIZE);
+				mystrcpy(icon, "paused", ICON_SIZE);
 			}
 			else
 			{
-				myprintf(icon_text, ICONTEXT_SIZE, "Freelooking");
-				myprintf(icon, ICON_SIZE, "camera");
+				mystrcpy(icon_text, "Freelooking", ICONTEXT_SIZE);
+				mystrcpy(icon, "camera", ICON_SIZE);
 			}
 		}
 	}
 	else // Not in-game
 	{
-		myprintf(details, DETAILS_SIZE, "Getting ready to drive");
-		myprintf(icon_text, ICONTEXT_SIZE, "In the main menu");
-		myprintf(icon, ICON_SIZE, "menu");
+		mystrcpy(icon_text, "In the main menu", ICONTEXT_SIZE);
+		mystrcpy(icon, "menu", ICON_SIZE);
 	}
-
-	Discord_UpdatePresence(presence);
+	
+	Discord_UpdatePresence(&presence);
 
 	VEH::RemoveHandler();
 }

@@ -8,7 +8,7 @@ void VEH::AddHandler()
 		return;
 	}
 
-	Log(LT_ERROR, "Tried to veh::AddHandler() when the handler already exists");
+	Log(LT_ERROR, "Tried to VEH::AddHandler() when the handler already exists");
 }
 
 void VEH::RemoveHandler()
@@ -20,7 +20,7 @@ void VEH::RemoveHandler()
 		return;
 	}
 
-	Log(LT_ERROR, "Tried to veh::RemoveHandler() when the handler doesn't exist");
+	Log(LT_ERROR, "Tried to VEH::RemoveHandler() when the handler doesn't exist");
 }
 
 // Exceptions in our code aren't the *worst* thing to happen to us (OMSI has them all the time), but there should be zero tolerance for something so simple to break
@@ -49,7 +49,7 @@ LONG CALLBACK VEH::ExceptionHandler(EXCEPTION_POINTERS* exception_pointers)
 	GetLocalTime(&time);
 
 	// Write minidump file
-	char dmp_filename[24];
+	char dmp_filename[24] { 0 };
 	myprintf(dmp_filename, 24, "OMSIPresence_%02d%02d%02d.dmp", time.wHour, time.wMinute, time.wSecond);
 
 	HANDLE hProcess = GetCurrentProcess();
@@ -60,13 +60,14 @@ LONG CALLBACK VEH::ExceptionHandler(EXCEPTION_POINTERS* exception_pointers)
 	// Try to get the name of the module our address is in
 	PVOID address = exception_pointers->ExceptionRecord->ExceptionAddress;
 
-	char module_name[MAX_PATH] = { 0 };
+	char module_string[MAX_PATH] { 0 };
 	MEMORY_BASIC_INFORMATION memory_info;
 	if (VirtualQuery(address, &memory_info, 28UL))
 	{
-		if (GetModuleFileName((HMODULE)memory_info.AllocationBase, module_name, MAX_PATH))
+		char module_name[MAX_PATH] { 0 };
+		if (GetModuleFileNameA((HMODULE)memory_info.AllocationBase, module_name, MAX_PATH))
 		{
-			myprintf(module_name, MAX_PATH, " in module %s", strrchr(module_name, '\\') + 1);
+			myprintf(module_string, MAX_PATH, " in module %s", strrchr(module_name, '\\') + 1);
 		}
 	}
 
@@ -74,13 +75,13 @@ LONG CALLBACK VEH::ExceptionHandler(EXCEPTION_POINTERS* exception_pointers)
 
 	if (g::debug)
 	{
-		Log(LT_ERROR, "Exception %08X at %08X%s. Saved to %s", code, address, module_name, dmp_filename);
+		Log(LT_ERROR, "Exception %08X at %08X%s. Saved to %s", code, address, module_string, dmp_filename);
 	}
 	else
 	{
 		Error("Exception %08X at %08X%s. OMSI 2 cannot continue safely and will be terminated.\n\n"
 			"An %s file containing more information about the crash has been created in your game folder. Please submit this file for developer review.",
-			code, address, module_name, dmp_filename);
+			code, address, module_string, dmp_filename);
 
 		// Normally, we would pass this exception on, but the game's built-in exception handler will throw it away, so we'll just have to terminate the program here
 		TerminateProcess(hProcess, ERROR_UNHANDLED_EXCEPTION);

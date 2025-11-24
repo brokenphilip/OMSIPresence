@@ -36,7 +36,7 @@ bool OplCheck()
 
 	if (!file)
 	{
-		char error[64];
+		char error[64] { 0 };
 		strerror_s(error, errno);
 		Error("Failed to start a consistency check on OMSIPresence.opl - error opening file. OMSIPresence cannot continue.\n\nError code %d: %s", errno, error);
 		return false;
@@ -73,7 +73,7 @@ bool OplCheck()
 	fopen_s(&file, "plugins/OMSIPresence.opl", "wb");
 	if (!file)
 	{
-		char error[64];
+		char error[64] { 0 };
 		strerror_s(error, errno);
 		Error("Inconsistencies in the OMSIPresence.opl file have been detected. OMSIPresence cannot continue.\n\n"
 			"Failed to revert the file's contents to their defaults - error opening file.\n\nError code %d: %s", errno, error);
@@ -94,7 +94,7 @@ void UpdateCheck()
 
 	/*
 	// HACK: Append current unix time as an unused query string to avoid caching
-	char url[128] = { 0 };
+	char url[128] { 0 };
 	myprintf(url, 128, "https://api.github.com/repos/brokenphilip/OMSIPresence/tags?%lld", time(NULL));
 	*/
 
@@ -108,7 +108,7 @@ void UpdateCheck()
 	}
 
 	// Read first 32 bytes from the result, we don't need any more
-	char buffer[32] = { 0 };
+	char buffer[32] { 0 };
 	stream->Read(buffer, 31, nullptr);
 	stream->Release();
 
@@ -138,7 +138,7 @@ void UpdateCheck()
 			// If versions do not match, prompt to be taken to the OMSIPresence page
 			if (strncmp(token, PROJECT_VERSION, ((len > len2) ? len : len2)))
 			{
-				char msg[256];
+				char msg[256] { 0 };
 				myprintf(msg, 256, "An update to OMSIPresence is available!\n\nYour version: " PROJECT_VERSION "\nLatest version: %s\n\n"
 					"Would you like to go to the OMSIPresence page now?", token);
 
@@ -158,7 +158,6 @@ void UpdateCheck()
 // Gets called when the game starts
 void __stdcall PluginStart(void* aOwner)
 {
-	Discord::presence = nullptr;
 	g::main_thread_id = GetCurrentThreadId();
 
 	g::debug = strstr(GetCommandLineA(), "-omsipresence_debug");
@@ -213,6 +212,7 @@ void __stdcall PluginStart(void* aOwner)
 	Discord::Setup();
 	Discord::Update();
 	Log(LT_INFO, "Rich presence initialized");
+	g::discord = true;
 
 	// Creates an enabled (implicit) TTimer with a 1 second interval (implicit) and OnTimer set to our function
 	__asm
@@ -250,7 +250,7 @@ void __stdcall AccessVariable(unsigned short index, float* value, bool* write)
 // Gets called when the game is exiting
 void __stdcall PluginFinalize()
 {
-	if (Discord::presence)
+	if (g::discord)
 	{
 		Discord::Destroy();
 		Log(LT_INFO, "Rich presence destroyed");
@@ -263,23 +263,23 @@ void __stdcall PluginFinalize()
 
 void Log(LogType log_t, const char* message, ...)
 {
-	char buffer[1024];
+	char buffer[1024] { 0 };
 	va_list va;
 	va_start(va, message);
 	vsprintf_s(buffer, 1024, message, va);
 
 	if (g::debug)
 	{
-		char tag[15] = { 0 };
+		char tag[15] { 0 };
 		switch (log_t)
 		{
 			case LT_FATAL:
-			case LT_ERROR: myprintf(tag, 15, "\x1B[91mERROR\x1B[0m"); break;
+			case LT_ERROR: mystrcpy(tag, "\x1B[91mERROR\x1B[0m", 15); break;
 
-			case LT_WARN: myprintf(tag, 15, "\x1B[93m WARN\x1B[0m"); break;
+			case LT_WARN: mystrcpy(tag, "\x1B[93m WARN\x1B[0m", 15); break;
 
 			/* LT_PRINT, LT_INFO */
-			default: myprintf(tag, 15, "\x1B[97m INFO\x1B[0m"); break;
+			default: mystrcpy(tag, "\x1B[97m INFO\x1B[0m", 15); break;
 		}
 
 		SYSTEMTIME time;
@@ -303,7 +303,7 @@ void Log(LogType log_t, const char* message, ...)
 
 void Error(const char* message, ...)
 {
-	char buffer[1024];
+	char buffer[1024] { 0 };
 	va_list va;
 	va_start(va, message);
 	vsprintf_s(buffer, 1024, message, va);
@@ -366,6 +366,68 @@ __declspec(naked) uintptr_t TRVList_GetMyVehicle()
 	}
 }
 
+char* TRVInst_GetTargetFromHof(uintptr_t vehicle, int target_index)
+{
+	auto myhof = Read<int>(vehicle + Offsets::TRVInst_myhof);
+	auto myTRVehicle = Read<uintptr_t>(vehicle + Offsets::TRVInst_TRV);
+	if (myTRVehicle)
+	{
+		auto hoefe = Read<uintptr_t>(myTRVehicle + Offsets::TRV_hoefe);
+		if (hoefe && BoundCheck(hoefe, myhof))
+		{
+			auto hof = Read<uintptr_t>(hoefe + myhof * 4);
+			if (hof)
+			{
+				auto targets = Read<uintptr_t>(hof + 0x14);
+				if (targets && BoundCheck(targets, target_index))
+				{
+					auto target_string = Read<char*>(targets + 0x18 * target_index + 8);
+					if (target_string)
+					{
+						return target_string;
+					}
+					else
+					{
+						Log(LT_ERROR, "GetTargetFromHof: Target string was null");
+					}
+				}
+				else
+				{
+					if (targets)
+					{
+						Log(LT_ERROR, "GetTargetFromHof: Target index %d is out of bounds (Size: %d)", target_index, ListLength(targets));
+					}
+					else
+					{
+						Log(LT_ERROR, "GetTargetFromHof: Target list was null");
+					}
+				}
+			}
+			else
+			{
+				Log(LT_ERROR, "GetTargetFromHof: Hof was null");
+			}
+		}
+		else
+		{
+			if (hoefe)
+			{
+				Log(LT_ERROR, "GetTargetFromHof: Hof index %d is out of bounds (Size: %d)", myhof, ListLength(hoefe));
+			}
+			else
+			{
+				Log(LT_ERROR, "GetTargetFromHof: Hof list was null");
+			}
+		}
+	}
+	else
+	{
+		Log(LT_ERROR, "GetTargetFromHof: TRoadVehicle was null");
+	}
+
+	return nullptr;
+}
+
 char* TTimeTableMan_GetLineName(uintptr_t tttman, int line)
 {
 	auto lines = Read<uintptr_t>(tttman + Offsets::TTTMan_Lines);
@@ -380,7 +442,7 @@ char* TTimeTableMan_GetLineName(uintptr_t tttman, int line)
 	return Read<char*>(lines + line * 0x10);
 }
 
-void TTimeTableMan_GetTripInfo(uintptr_t tttman, int trip, int busstop_index, const wchar_t** busstop_name, int* busstop_count)
+void TTimeTableMan_GetTripInfo(uintptr_t tttman, int trip, int busstop_index, const char** target_name, const wchar_t** busstop_name, int* busstop_count)
 {
 	auto trips = Read<uintptr_t>(tttman + Offsets::TTTMan_Trips);
 	if (!BoundCheck(trips, trip))
@@ -388,6 +450,8 @@ void TTimeTableMan_GetTripInfo(uintptr_t tttman, int trip, int busstop_index, co
 		Log(LT_ERROR, "GetTripInfo: Trip %d is out of bounds (Size: %d)", trip, ListLength(trips));
 		return;
 	}
+
+	*target_name = Read<char*>(trips + trip * 0x28 + 0x8);
 
 	// Taken from TRoadVehicleInst_ScriptCallback, case 10 (GetTTBusstopCount macro)
 	auto busstops_for_trip = Read<uintptr_t>(trips + trip * 0x28 + 0x18);
