@@ -10,7 +10,7 @@ You must be running one of the following versions of OMSI 2 (you can check which
 - `2.2.032` - "Tram patch"
 
 ### Installation
-1. Head over to [Releases](https://github.com/brokenphilip/OMSIPresence/releases) and download the latest `OMSIPresence.zip`
+1. Download the latest `OMSIPresence.zip` [here](https://github.com/brokenphilip/OMSIPresence/releases/download/1.4/OMSIPresence.zip) or manually via [Releases](https://github.com/brokenphilip/OMSIPresence/releases)
 2. Navigate to your OMSI 2 installation folder
    - Open your Steam Library, right click on **OMSI 2** and select **Properties**
    - Select the **Local Files** tab on your left, and then click the **Browse** button
