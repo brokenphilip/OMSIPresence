@@ -120,8 +120,8 @@ namespace Offsets
 	// Pointer to the map
 	inline uintptr_t TMap = NO_OF(2);
 
-	// Offset from TMap, friendlyname
-	constexpr uintptr_t TMap_friendlyname = 0x158;
+	// Offset from TMap, name
+	constexpr uintptr_t TMap_name = 0x150;
 
 	// Pointer to the timetable manager
 	inline uintptr_t TTTMan = NO_OF(3);

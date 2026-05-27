@@ -37,14 +37,14 @@ void Discord::UpdateMap(uintptr_t map, char* map_name, size_t size)
 {
 	if (map)
 	{
-		auto map_wide = Read<wchar_t*>(map + Offsets::TMap_friendlyname);
+		auto map_wide = Read<wchar_t*>(map + Offsets::TMap_name);
 		if (map_wide)
 		{
 			WideCharToMultiByte(CP_UTF8, 0, map_wide, size, map_name, size, NULL, NULL);
 		}
 		else
 		{
-			Log(LT_ERROR, "TMap.mapname was null");
+			Log(LT_ERROR, "TMap.name was null");
 			map_name[0] = '\0';
 		}
 	}
