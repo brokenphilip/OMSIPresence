@@ -366,6 +366,15 @@ __declspec(naked) uintptr_t TRVList_GetMyVehicle()
 	}
 }
 
+uintptr_t TRVInst_GetFirstVehicle(uintptr_t vehicle)
+{
+	if (vehicle)
+	{
+		return Read<uintptr_t>(vehicle + Offsets::TRVInst_vb_first);
+	}
+	return 0;
+}
+
 char* TRVInst_GetTargetFromHof(uintptr_t vehicle, int target_index)
 {
 	auto myhof = Read<int>(vehicle + Offsets::TRVInst_myhof);

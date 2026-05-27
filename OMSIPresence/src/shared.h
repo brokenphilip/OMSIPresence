@@ -8,7 +8,7 @@
 /* === Main project stuff ===*/
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! MAKE SURE TO UPDATE THE VERSION RESOURCE AS WELL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#define PROJECT_VERSION "1.4"
+#define PROJECT_VERSION "1.5"
 
 #define myprintf(dest, size, fmt, ...) _snprintf_s(dest, size, size - 1, fmt, __VA_ARGS__)
 #define mystrcpy(dest, src, count) strncpy_s(dest, count, src, count - 1)
@@ -97,6 +97,7 @@ void OnTimer();
 
 uintptr_t TRVList_GetMyVehicle();
 
+uintptr_t TRVInst_GetFirstVehicle(uintptr_t vehicle);
 char* TRVInst_GetTargetFromHof(uintptr_t vehicle, int target_index);
 
 char* TTimeTableMan_GetLineName(uintptr_t tttman, int index);
@@ -136,6 +137,9 @@ namespace Offsets
 
 	// Location of the function TRVList.GetMyVehicle:TRoadVehicleInst
 	inline uintptr_t TRVList_GetMyVehicle = NO_OF(5);
+
+	// Offset from TRoadVehicleInst, vb_first
+	constexpr uintptr_t TRVInst_vb_first = 0x4D0;
 
 	// Offset from TRoadVehicleInst, AI_Scheduled_Info_Valid
 	constexpr uintptr_t TRVInst_Sch_Info_Valid = 0x65C;

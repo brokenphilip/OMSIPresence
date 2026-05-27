@@ -149,7 +149,7 @@ void Discord::Update()
 		static uintptr_t myTRVInst = 0;
 
 		// If the currently driven vehicle has changed, get the new name
-		uintptr_t myTRVInst_new = TRVList_GetMyVehicle();
+		uintptr_t myTRVInst_new = TRVInst_GetFirstVehicle(TRVList_GetMyVehicle());
 		if (myTRVInst != myTRVInst_new)
 		{
 			Log(LT_INFO, "Found new TRVInst: %08X -> %08X", myTRVInst, myTRVInst_new);
